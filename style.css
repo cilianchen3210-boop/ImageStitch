@@ -157,6 +157,7 @@ body {
   max-width: 100%;
   height: auto;
   display: block;
+  cursor: pointer;
 }
 
 .settings-region {
@@ -278,6 +279,90 @@ body {
   height: auto;
   margin: 0 auto;
   border-radius: 4px;
+}
+
+/* ---------- 裁剪编辑器 ---------- */
+
+#editorSelectedLabel {
+  font-weight: normal;
+  font-size: .8rem;
+  color: #9a9aa2;
+  margin-left: .25rem;
+}
+
+#imageEditorBody {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+#imageEditorBody[hidden] {
+  display: none;
+}
+
+.crop-preview-wrap {
+  position: relative;
+}
+
+.crop-preview-wrap canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  cursor: move;
+  background: #fafafa;
+}
+
+.crop-resize-handle {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 10px;
+  border-radius: 4px;
+  background: #6b6bf0;
+  cursor: ns-resize;
+}
+
+#cropPreviewCanvasLocked {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+#customCropControls {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+#freeCropControls,
+#centerLockControls {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+#customCropControls[hidden],
+#freeCropControls[hidden],
+#centerLockControls[hidden] {
+  display: none;
+}
+
+.editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: .5rem;
+}
+
+.editor-actions button {
+  padding: .5rem 1rem;
+  border: 1px solid #e0e0e3;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
 }
 
 /* ---------- 响应式 ---------- */

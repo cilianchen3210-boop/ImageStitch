@@ -87,6 +87,49 @@ export function setExportQuality(quality) {
   notifyChange();
 }
 
+function findItem(id) {
+  return state.items.find((item) => item.id === id);
+}
+
+export function setItemFillMode(id, mode) {
+  const item = findItem(id);
+  if (!item) return;
+  item.fillMode = mode;
+  if (mode === 'custom' && !item.crop) {
+    item.crop = {
+      heightRatio: item.naturalHeight / item.naturalWidth,
+      zoom: 1,
+      offsetX: 0.5,
+      offsetY: 0,
+      widthPercent: 100,
+    };
+  }
+  notifyChange();
+}
+
+export function setItemCenterLock(id, value) {
+  const item = findItem(id);
+  if (!item) return;
+  item.centerLock = value;
+  notifyChange();
+}
+
+export function updateItemCrop(id, partial) {
+  const item = findItem(id);
+  if (!item || !item.crop) return;
+  Object.assign(item.crop, partial);
+  notifyChange();
+}
+
+export function resetItemCustom(id) {
+  const item = findItem(id);
+  if (!item) return;
+  item.fillMode = 'scale';
+  item.centerLock = false;
+  item.crop = null;
+  notifyChange();
+}
+
 export function getMaxNaturalWidth() {
   const widths = state.items
     .filter((item) => item.naturalWidth > 0)

@@ -36,7 +36,7 @@
           </label>
           <label class="checkbox-label">
             <input type="checkbox" id="outerBorderInput">
-            边框
+            四边
           </label>
         </fieldset>
 
@@ -63,6 +63,39 @@
           </label>
           <button type="button" id="exportButton">导出</button>
           <p class="export-note" id="exportNote" hidden></p>
+        </fieldset>
+
+        <fieldset class="control-group" id="imageEditorGroup">
+          <legend>图片调整<span id="editorSelectedLabel"></span></legend>
+          <p class="reference-text" id="editorEmptyHint">点击预览图片以调整</p>
+          <div id="imageEditorBody" hidden>
+            <label class="checkbox-label"><input type="radio" name="fillMode" id="fillModeScale"> 默认</label>
+            <label class="checkbox-label"><input type="radio" name="fillMode" id="fillModeCustom"> 自定义</label>
+
+            <div id="customCropControls" hidden>
+              <p class="reference-text">图片可自由裁剪、拖动、缩放</p>
+              <label class="checkbox-label"><input type="checkbox" id="centerLockInput"> 居中锁定</label>
+
+              <div id="freeCropControls">
+                <div class="crop-preview-wrap">
+                  <canvas id="cropPreviewCanvas"></canvas>
+                  <div class="crop-resize-handle" id="cropResizeHandle"></div>
+                </div>
+                <label class="slider-row">缩放
+                  <input type="range" id="cropZoomInput" min="1" max="4" step="0.01" value="1">
+                </label>
+              </div>
+
+              <div id="centerLockControls" hidden>
+                <canvas id="cropPreviewCanvasLocked"></canvas>
+                <input type="range" id="cropWidthPercentInput" min="0" max="100" step="1" value="100">
+              </div>
+            </div>
+
+            <div class="editor-actions">
+              <button type="button" id="cropResetButton">重置</button>
+            </div>
+          </div>
         </fieldset>
 
         <fieldset class="control-group mini-preview-group">
