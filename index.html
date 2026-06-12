@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>拼图工具</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-layout">
+    <header class="upload-region" id="uploadRegion">
+      <input type="file" id="fileInput" accept="image/*" multiple hidden>
+      <div class="upload-grid" id="uploadGrid">
+        <div class="upload-placeholder" id="uploadPlaceholder">
+          <span class="upload-placeholder-text">点击上传图片</span>
+          <span class="upload-placeholder-hint">支持格式：JPG、PNG、GIF、WebP、BMP</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <main class="preview-region" id="previewRegion">
+        <canvas id="previewCanvas"></canvas>
+      </main>
+
+      <aside class="settings-region" id="settingsRegion">
+        <fieldset class="control-group">
+          <legend>边距</legend>
+          <label class="slider-row" id="marginSizeRow">边距大小
+            <input type="range" id="marginSizeInput" min="0" max="100" step="1" value="20">
+            <span class="value-label" id="marginSizeValueLabel" tabindex="0" title="点击输入数值">20px</span>
+            <input type="number" class="value-input" id="marginSizeValueInput" min="0" step="1" value="20" hidden>
+          </label>
+          <label>边距颜色
+            <input type="color" id="marginColorInput" value="#ffffff">
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="outerBorderInput">
+            边框
+          </label>
+        </fieldset>
+
+        <fieldset class="control-group">
+          <legend>导出尺寸</legend>
+          <label>导出宽度 (px)
+            <input type="number" id="exportWidthInput" min="1" placeholder="">
+          </label>
+          <span class="reference-text" id="exportWidthReference" hidden></span>
+        </fieldset>
+
+        <fieldset class="control-group">
+          <legend>导出</legend>
+          <label>格式
+            <select id="exportFormatSelect">
+              <option value="image/png">PNG（无损，推荐）</option>
+              <option value="image/webp">WebP（体积/质量均衡）</option>
+              <option value="image/jpeg" selected>JPEG（体积最小，兼容性好）</option>
+            </select>
+          </label>
+          <label class="slider-row" id="qualityRow" hidden>质量
+            <input type="range" id="exportQualityInput" min="0.1" max="1" step="0.01" value="0.92">
+            <span id="qualityValueLabel">92%</span>
+          </label>
+          <button type="button" id="exportButton">导出</button>
+          <p class="export-note" id="exportNote" hidden></p>
+        </fieldset>
+
+        <fieldset class="control-group mini-preview-group">
+          <legend>整体预览</legend>
+          <canvas id="miniPreviewCanvas"></canvas>
+        </fieldset>
+      </aside>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

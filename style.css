@@ -1,0 +1,295 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #f4f4f5;
+  color: #1f2024;
+}
+
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+/* ---------- 上传区域 ---------- */
+
+.upload-region {
+  background: #fff;
+  border: 1px solid #e0e0e3;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.upload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px;
+}
+
+.upload-placeholder {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .25rem;
+  min-height: 80px;
+  border: 2px dashed #c8c8cf;
+  border-radius: 8px;
+  color: #8a8a92;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color .15s, color .15s;
+}
+
+.upload-placeholder:hover {
+  border-color: #6b6bf0;
+  color: #6b6bf0;
+}
+
+.upload-placeholder-hint {
+  font-size: .8rem;
+  color: #b0b0b8;
+}
+
+.thumb {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid #e0e0e3;
+  background: #fafafa;
+  cursor: grab;
+}
+
+.thumb.dragging {
+  opacity: .4;
+}
+
+.thumb.drag-over-left {
+  box-shadow: inset 3px 0 0 0 #6b6bf0;
+}
+
+.thumb.drag-over-right {
+  box-shadow: inset -3px 0 0 0 #6b6bf0;
+}
+
+.thumb-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+
+.thumb-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  line-height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .55);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s;
+}
+
+.thumb:hover .thumb-delete {
+  opacity: 1;
+}
+
+.thumb.add-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed #c8c8cf;
+  background: #fafafa;
+  color: #8a8a92;
+  font-size: 28px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.thumb.add-tile:hover {
+  border-color: #6b6bf0;
+  color: #6b6bf0;
+}
+
+.upload-region.drag-over {
+  outline: 2px dashed #6b6bf0;
+  outline-offset: -2px;
+}
+
+/* ---------- 工作区：预览 + 参数 ---------- */
+
+.workspace {
+  display: grid;
+  grid-template-columns: 1fr minmax(220px, 320px);
+  gap: 1rem;
+  flex: 1;
+  min-height: 0;
+  align-items: start;
+}
+
+.preview-region {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid #e0e0e3;
+  border-radius: 8px;
+  padding: 1rem;
+  overflow: auto;
+}
+
+#previewCanvas {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.settings-region {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+.control-group {
+  background: #fff;
+  border: 1px solid #e0e0e3;
+  border-radius: 8px;
+  padding: .75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+}
+
+.control-group legend {
+  font-weight: 600;
+  padding: 0 .25rem;
+}
+
+.control-group label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  font-size: .9rem;
+}
+
+.control-group label.checkbox-label {
+  justify-content: flex-start;
+}
+
+.control-group input[type="number"] {
+  width: 6rem;
+}
+
+.reference-text {
+  font-size: .8rem;
+  color: #9a9aa2;
+}
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.slider-row[hidden] {
+  display: none;
+}
+
+.slider-row input[type="range"] {
+  flex: 1;
+}
+
+.slider-row span {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.value-label {
+  cursor: pointer;
+  border-bottom: 1px dashed transparent;
+  border-radius: 2px;
+}
+
+.value-label:hover,
+.value-label:focus-visible {
+  border-bottom-color: #6b6bf0;
+  color: #6b6bf0;
+  outline: none;
+}
+
+.value-input {
+  flex-shrink: 0;
+  width: 4.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+#exportButton {
+  padding: .5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: #6b6bf0;
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+#exportButton:hover {
+  background: #5757d6;
+}
+
+.export-note {
+  font-size: .8rem;
+  color: #9a9aa2;
+  margin: 0;
+}
+
+/* ---------- 整体预览（小图） ---------- */
+
+.mini-preview-group {
+  align-items: center;
+  margin-top: auto;
+}
+
+#miniPreviewCanvas {
+  display: block;
+  max-width: 100%;
+  max-height: 200px;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 4px;
+}
+
+/* ---------- 响应式 ---------- */
+
+@media (max-width: 768px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-region {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+  }
+}
