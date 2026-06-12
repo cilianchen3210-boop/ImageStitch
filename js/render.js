@@ -36,11 +36,18 @@ export function render(state) {
 
   layout.items.forEach((item, i) => {
     const pos = layout.positions[i];
-    if (pos.source) {
+    if (pos.cells) {
+      pos.cells.forEach((cell) => {
+        const { sx, sy, sw, sh } = cell.source;
+        ctx.drawImage(
+          cell.child.img,
+          sx, sy, sw, sh,
+          pos.x + cell.x + cell.offX, pos.y + cell.offY, cell.renderWidth, cell.renderHeight
+        );
+      });
+    } else {
       const { sx, sy, sw, sh } = pos.source;
       ctx.drawImage(item.img, sx, sy, sw, sh, pos.x, pos.y, pos.width, pos.height);
-    } else {
-      ctx.drawImage(item.img, pos.x, pos.y, pos.width, pos.height);
     }
   });
 
@@ -54,35 +61,63 @@ function renderMiniPreview() {
   miniCtx.drawImage(canvas, 0, 0, miniCanvas.width, miniCanvas.height);
 }
 
+export function computeCoverSource(child, w, h) {
+  const { crop } = child;
+  const baseScale = Math.max(w / child.naturalWidth, h / child.naturalHeight);
+  const effectiveScale = baseScale * crop.zoom;
+  const sw = w / effectiveScale;
+  const sh = h / effectiveScale;
+  const sx = clamp(crop.offsetX * child.naturalWidth - sw / 2, 0, child.naturalWidth - sw);
+  const sy = clamp(crop.offsetY * child.naturalHeight - sh / 2, 0, child.naturalHeight - sh);
+  return { sx, sy, sw, sh };
+}
+
 export function computeItemGeometry(item, exportWidth) {
-  if (item.fillMode === 'custom' && item.crop) {
-    const crop = item.crop;
-
-    const height = crop.heightRatio * exportWidth;
-    const baseScale = Math.max(exportWidth / item.naturalWidth, height / item.naturalHeight);
-    const effectiveScale = baseScale * crop.zoom;
-    const sw = exportWidth / effectiveScale;
-    const sh = height / effectiveScale;
-    const sx = clamp(crop.offsetX * item.naturalWidth - sw / 2, 0, item.naturalWidth - sw);
-    const sy = clamp(crop.offsetY * item.naturalHeight, 0, item.naturalHeight - sh);
-
-    if (item.centerLock) {
-      const renderWidth = exportWidth * (crop.widthPercent / 100);
-      const renderHeight = renderWidth * crop.heightRatio;
-      return {
-        height: renderHeight,
-        dx: (exportWidth - renderWidth) / 2,
-        dw: renderWidth,
-        dh: renderHeight,
-        source: { sx, sy, sw, sh },
-      };
-    }
-
-    return { height, dx: 0, dw: exportWidth, dh: height, source: { sx, sy, sw, sh } };
+  if (item.type === 'group') {
+    const cellHeight = item.heightRatio * exportWidth;
+    const n = item.children.length;
+    const cellWidth = exportWidth / n;
+    const cells = item.children.map((child, idx) => {
+      const source = computeCoverSource(child, cellWidth, cellHeight);
+      let renderWidth = cellWidth;
+      let renderHeight = cellHeight;
+      let offX = 0;
+      let offY = 0;
+      if (child.centerLock) {
+        const wp = child.crop.widthPercent / 100;
+        renderWidth = cellWidth * wp;
+        renderHeight = cellHeight * wp;
+        offX = (cellWidth - renderWidth) / 2;
+        offY = (cellHeight - renderHeight) / 2;
+      }
+      return { x: idx * cellWidth, width: cellWidth, source, renderWidth, renderHeight, offX, offY, child };
+    });
+    return { height: cellHeight, dx: 0, dw: exportWidth, dh: cellHeight, source: null, cells };
   }
 
-  const height = item.naturalHeight * (exportWidth / item.naturalWidth);
-  return { height, dx: 0, dw: exportWidth, dh: height, source: null };
+  const crop = item.crop;
+
+  const height = crop.heightRatio * exportWidth;
+  const baseScale = Math.max(exportWidth / item.naturalWidth, height / item.naturalHeight);
+  const effectiveScale = baseScale * crop.zoom;
+  const sw = exportWidth / effectiveScale;
+  const sh = height / effectiveScale;
+  const sx = clamp(crop.offsetX * item.naturalWidth - sw / 2, 0, item.naturalWidth - sw);
+  const sy = clamp(crop.offsetY * item.naturalHeight, 0, item.naturalHeight - sh);
+
+  if (item.centerLock) {
+    const renderWidth = exportWidth * (crop.widthPercent / 100);
+    const renderHeight = renderWidth * crop.heightRatio;
+    return {
+      height: renderHeight,
+      dx: (exportWidth - renderWidth) / 2,
+      dw: renderWidth,
+      dh: renderHeight,
+      source: { sx, sy, sw, sh },
+    };
+  }
+
+  return { height, dx: 0, dw: exportWidth, dh: height, source: { sx, sy, sw, sh } };
 }
 
 function clamp(value, lo, hi) {
@@ -96,15 +131,27 @@ export function getItemAtPoint(state, px, py) {
   for (let i = 0; i < layout.positions.length; i += 1) {
     const pos = layout.positions[i];
     if (px >= pos.x && px <= pos.x + pos.width && py >= pos.y && py <= pos.y + pos.height) {
-      return layout.items[i];
+      const item = layout.items[i];
+      if (pos.cells) {
+        const cell = pos.cells.find((c) => px >= pos.x + c.x && px <= pos.x + c.x + c.width);
+        return cell ? { item: cell.child, group: item } : null;
+      }
+      return { item, group: null };
     }
   }
 
   return null;
 }
 
+function isItemReady(item) {
+  if (item.type === 'group') {
+    return item.children.length > 0 && item.children.every((c) => c.naturalWidth > 0);
+  }
+  return item.naturalWidth > 0;
+}
+
 function computeLayout(state) {
-  const items = state.items.filter((item) => item.naturalWidth > 0);
+  const items = state.items.filter(isItemReady);
   if (items.length === 0) return null;
 
   const exportWidth = getEffectiveExportWidth();
@@ -130,6 +177,7 @@ function computeLayout(state) {
       width: geo.dw,
       height: geo.dh,
       source: geo.source,
+      cells: geo.cells,
     });
     y += geo.height + m;
   });

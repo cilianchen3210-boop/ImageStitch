@@ -10,6 +10,10 @@
   <div class="app-layout">
     <header class="upload-region" id="uploadRegion">
       <input type="file" id="fileInput" accept="image/*" multiple hidden>
+      <div class="upload-toolbar">
+        <button type="button" id="mergeButton" disabled>合并</button>
+        <button type="button" id="ungroupButton" disabled>拆分</button>
+      </div>
       <div class="upload-grid" id="uploadGrid">
         <div class="upload-placeholder" id="uploadPlaceholder">
           <span class="upload-placeholder-text">点击上传图片</span>
@@ -20,12 +24,20 @@
 
     <div class="workspace">
       <main class="preview-region" id="previewRegion">
+        <label class="theme-toggle" title="切换预览区域明暗">
+          <input type="checkbox" id="previewThemeToggle">
+          <span class="theme-toggle-track"></span>
+        </label>
         <canvas id="previewCanvas"></canvas>
       </main>
 
       <aside class="settings-region" id="settingsRegion">
         <fieldset class="control-group">
           <legend>边距</legend>
+          <label class="checkbox-label">
+            <input type="checkbox" id="outerBorderInput">
+            四边
+          </label>
           <label class="slider-row" id="marginSizeRow">边距大小
             <input type="range" id="marginSizeInput" min="0" max="100" step="1" value="20">
             <span class="value-label" id="marginSizeValueLabel" tabindex="0" title="点击输入数值">20px</span>
@@ -34,9 +46,17 @@
           <label>边距颜色
             <input type="color" id="marginColorInput" value="#ffffff">
           </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="outerBorderInput">
-            四边
+          <label class="slider-row">色相 H
+            <input type="range" id="marginHueInput" min="0" max="360" step="1" value="0">
+            <span id="marginHueValue">0</span>
+          </label>
+          <label class="slider-row">饱和度 S
+            <input type="range" id="marginSatInput" min="0" max="100" step="1" value="0">
+            <span id="marginSatValue">0%</span>
+          </label>
+          <label class="slider-row">明度 L
+            <input type="range" id="marginLightInput" min="0" max="100" step="1" value="100">
+            <span id="marginLightValue">100%</span>
           </label>
         </fieldset>
 
@@ -67,12 +87,9 @@
 
         <fieldset class="control-group" id="imageEditorGroup">
           <legend>图片调整<span id="editorSelectedLabel"></span></legend>
-          <p class="reference-text" id="editorEmptyHint">点击预览图片以调整</p>
+          <p class="reference-text" id="editorEmptyHint">点击图片以调整</p>
           <div id="imageEditorBody" hidden>
-            <label class="checkbox-label"><input type="radio" name="fillMode" id="fillModeScale"> 默认</label>
-            <label class="checkbox-label"><input type="radio" name="fillMode" id="fillModeCustom"> 自定义</label>
-
-            <div id="customCropControls" hidden>
+            <div id="customCropControls">
               <p class="reference-text">图片可自由裁剪、拖动、缩放</p>
               <label class="checkbox-label"><input type="checkbox" id="centerLockInput"> 居中锁定</label>
 
@@ -94,6 +111,7 @@
 
             <div class="editor-actions">
               <button type="button" id="cropResetButton">重置</button>
+              <button type="button" id="cropDoneButton">完成</button>
             </div>
           </div>
         </fieldset>
@@ -104,6 +122,10 @@
         </fieldset>
       </aside>
     </div>
+  </div>
+
+  <div class="fullscreen-overlay" id="fullscreenOverlay" hidden>
+    <button type="button" class="fullscreen-close" id="fullscreenCloseButton" aria-label="关闭全屏预览">×</button>
   </div>
 
   <script type="module" src="js/main.js"></script>

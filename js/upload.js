@@ -1,11 +1,22 @@
-import { getState, onChange, addImages, removeImage, reorderImages } from './state.js';
+import {
+  getState,
+  onChange,
+  addImages,
+  removeImage,
+  reorderImages,
+  mergeIntoGroup,
+  ungroupItem,
+} from './state.js';
 
 const uploadRegion = document.getElementById('uploadRegion');
 const uploadGrid = document.getElementById('uploadGrid');
 const uploadPlaceholder = document.getElementById('uploadPlaceholder');
 const fileInput = document.getElementById('fileInput');
+const mergeButton = document.getElementById('mergeButton');
+const ungroupButton = document.getElementById('ungroupButton');
 
 let draggedId = null;
+const selectedIds = new Set();
 
 export function initUpload() {
   uploadPlaceholder.addEventListener('click', () => fileInput.click());
@@ -42,6 +53,7 @@ export function initUpload() {
     if (deleteBtn) {
       e.stopPropagation();
       const thumb = deleteBtn.closest('.thumb');
+      selectedIds.delete(thumb.dataset.id);
       removeImage(thumb.dataset.id);
       return;
     }
@@ -49,6 +61,38 @@ export function initUpload() {
     if (e.target.closest('.add-tile')) {
       fileInput.click();
     }
+
+    const thumb = e.target.closest('.thumb');
+    if (thumb && !thumb.classList.contains('add-tile')) {
+      const id = thumb.dataset.id;
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+      } else {
+        selectedIds.add(id);
+      }
+      thumb.classList.toggle('selected');
+      updateToolbarState();
+    }
+  });
+
+  mergeButton.addEventListener('click', () => {
+    const state = getState();
+    const ids = [...selectedIds].filter((id) => {
+      const item = state.items.find((i) => i.id === id);
+      return item && item.type === 'image';
+    });
+    mergeIntoGroup(ids);
+    selectedIds.clear();
+  });
+
+  ungroupButton.addEventListener('click', () => {
+    const state = getState();
+    const ids = [...selectedIds].filter((id) => {
+      const item = state.items.find((i) => i.id === id);
+      return item && item.type === 'group';
+    });
+    ids.forEach((id) => ungroupItem(id));
+    selectedIds.clear();
   });
 
   uploadGrid.addEventListener('dragstart', (e) => {
@@ -111,9 +155,15 @@ export function initUpload() {
 export function syncThumbnails(state) {
   uploadGrid.innerHTML = '';
 
+  const itemIds = new Set(state.items.map((item) => item.id));
+  [...selectedIds].forEach((id) => {
+    if (!itemIds.has(id)) selectedIds.delete(id);
+  });
+
   if (state.items.length === 0) {
     uploadPlaceholder.hidden = false;
     uploadGrid.appendChild(uploadPlaceholder);
+    updateToolbarState();
     return;
   }
 
@@ -125,12 +175,27 @@ export function syncThumbnails(state) {
     thumb.dataset.id = item.id;
     thumb.draggable = true;
 
-    const img = document.createElement('img');
-    img.className = 'thumb-img';
-    img.src = item.src;
-    img.draggable = false;
-    img.alt = '';
-    thumb.appendChild(img);
+    if (item.type === 'group') {
+      thumb.classList.add('thumb-group');
+
+      const children = document.createElement('div');
+      children.className = 'thumb-group-children';
+      item.children.forEach((child) => {
+        const img = document.createElement('img');
+        img.src = child.src;
+        img.draggable = false;
+        img.alt = '';
+        children.appendChild(img);
+      });
+      thumb.appendChild(children);
+    } else {
+      const img = document.createElement('img');
+      img.className = 'thumb-img';
+      img.src = item.src;
+      img.draggable = false;
+      img.alt = '';
+      thumb.appendChild(img);
+    }
 
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
@@ -139,6 +204,8 @@ export function syncThumbnails(state) {
     deleteBtn.textContent = '×';
     thumb.appendChild(deleteBtn);
 
+    if (selectedIds.has(item.id)) thumb.classList.add('selected');
+
     uploadGrid.appendChild(thumb);
   });
 
@@ -146,4 +213,15 @@ export function syncThumbnails(state) {
   addTile.className = 'thumb add-tile';
   addTile.textContent = '+';
   uploadGrid.appendChild(addTile);
+
+  updateToolbarState();
+}
+
+function updateToolbarState() {
+  const state = getState();
+  const selectedItems = [...selectedIds].map((id) => state.items.find((i) => i.id === id)).filter(Boolean);
+  const images = selectedItems.filter((i) => i.type === 'image');
+  const groups = selectedItems.filter((i) => i.type === 'group');
+  mergeButton.disabled = !(images.length >= 2 && groups.length === 0);
+  ungroupButton.disabled = !(groups.length >= 1 && images.length === 0);
 }

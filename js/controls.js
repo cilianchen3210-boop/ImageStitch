@@ -9,11 +9,18 @@ import {
   setExportQuality,
   getMaxNaturalWidth,
 } from './state.js';
+import { hexToHsl, hslToHex } from './utils.js';
 
 const marginSizeInput = document.getElementById('marginSizeInput');
 const marginSizeValueLabel = document.getElementById('marginSizeValueLabel');
 const marginSizeValueInput = document.getElementById('marginSizeValueInput');
 const marginColorInput = document.getElementById('marginColorInput');
+const marginHueInput = document.getElementById('marginHueInput');
+const marginSatInput = document.getElementById('marginSatInput');
+const marginLightInput = document.getElementById('marginLightInput');
+const marginHueValue = document.getElementById('marginHueValue');
+const marginSatValue = document.getElementById('marginSatValue');
+const marginLightValue = document.getElementById('marginLightValue');
 const outerBorderInput = document.getElementById('outerBorderInput');
 const exportWidthInput = document.getElementById('exportWidthInput');
 const exportWidthReference = document.getElementById('exportWidthReference');
@@ -21,6 +28,9 @@ const exportFormatSelect = document.getElementById('exportFormatSelect');
 const qualityRow = document.getElementById('qualityRow');
 const exportQualityInput = document.getElementById('exportQualityInput');
 const qualityValueLabel = document.getElementById('qualityValueLabel');
+const previewRegion = document.getElementById('previewRegion');
+const previewThemeToggle = document.getElementById('previewThemeToggle');
+const miniPreviewGroup = document.querySelector('.mini-preview-group');
 
 export function initControls() {
   marginSizeInput.addEventListener('input', () => {
@@ -49,7 +59,25 @@ export function initControls() {
   marginSizeValueInput.addEventListener('blur', commitMarginSizeEdit);
 
   marginColorInput.addEventListener('input', () => {
-    setMarginColor(marginColorInput.value);
+    applyMarginColor(marginColorInput.value, marginColorInput);
+  });
+
+  [marginHueInput, marginSatInput, marginLightInput].forEach((input) => {
+    input.addEventListener('input', () => {
+      const h = Number(marginHueInput.value);
+      const s = Number(marginSatInput.value);
+      const l = Number(marginLightInput.value);
+      marginHueValue.textContent = String(h);
+      marginSatValue.textContent = `${s}%`;
+      marginLightValue.textContent = `${l}%`;
+      applyMarginColor(hslToHex(h, s, l), 'hsl');
+    });
+  });
+
+  previewThemeToggle.addEventListener('change', () => {
+    const isDark = previewThemeToggle.checked;
+    previewRegion.classList.toggle('dark-preview', isDark);
+    miniPreviewGroup.classList.toggle('dark-preview', isDark);
   });
 
   outerBorderInput.addEventListener('change', () => {
@@ -80,8 +108,25 @@ export function initControls() {
 
   onChange(() => updateExportWidthPlaceholder());
 
+  applyMarginColor(getState().margin.color, null);
   updateExportWidthPlaceholder();
   updateQualityVisibility();
+}
+
+function applyMarginColor(hex, skip) {
+  setMarginColor(hex);
+
+  if (skip !== marginColorInput) marginColorInput.value = hex;
+
+  if (skip !== 'hsl') {
+    const { h, s, l } = hexToHsl(hex);
+    marginHueInput.value = String(h);
+    marginSatInput.value = String(s);
+    marginLightInput.value = String(l);
+    marginHueValue.textContent = String(h);
+    marginSatValue.textContent = `${s}%`;
+    marginLightValue.textContent = `${l}%`;
+  }
 }
 
 function startEditingMarginSize() {

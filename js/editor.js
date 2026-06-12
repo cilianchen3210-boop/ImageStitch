@@ -1,21 +1,21 @@
 import {
   getState,
   onChange,
-  setItemFillMode,
   setItemCenterLock,
   updateItemCrop,
-  resetItemCustom,
+  resetItemCrop,
+  updateGroupChildCrop,
+  setGroupChildCenterLock,
+  resetGroupChildCrop,
+  updateGroupHeightRatio,
 } from './state.js';
-import { computeItemGeometry, getItemAtPoint } from './render.js';
+import { computeItemGeometry, computeCoverSource, getItemAtPoint } from './render.js';
 
 const previewCanvas = document.getElementById('previewCanvas');
 
 const editorEmptyHint = document.getElementById('editorEmptyHint');
 const editorSelectedLabel = document.getElementById('editorSelectedLabel');
 const imageEditorBody = document.getElementById('imageEditorBody');
-const fillModeScale = document.getElementById('fillModeScale');
-const fillModeCustom = document.getElementById('fillModeCustom');
-const customCropControls = document.getElementById('customCropControls');
 const centerLockInput = document.getElementById('centerLockInput');
 const freeCropControls = document.getElementById('freeCropControls');
 const centerLockControls = document.getElementById('centerLockControls');
@@ -27,10 +27,12 @@ const cropPreviewCanvasLocked = document.getElementById('cropPreviewCanvasLocked
 const cropPreviewLockedCtx = cropPreviewCanvasLocked.getContext('2d');
 const cropWidthPercentInput = document.getElementById('cropWidthPercentInput');
 const cropResetButton = document.getElementById('cropResetButton');
+const cropDoneButton = document.getElementById('cropDoneButton');
 
 const PREVIEW_W = 360;
 
 let currentItem = null;
+let currentGroup = null;
 
 export function initEditor() {
   previewCanvas.addEventListener('click', (e) => {
@@ -39,48 +41,50 @@ export function initEditor() {
 
     const px = ((e.clientX - rect.left) / rect.width) * previewCanvas.width;
     const py = ((e.clientY - rect.top) / rect.height) * previewCanvas.height;
-    const item = getItemAtPoint(getState(), px, py);
-    if (item) selectItem(item);
-  });
-
-  fillModeScale.addEventListener('change', () => {
-    if (!fillModeScale.checked || !currentItem) return;
-    setItemFillMode(currentItem.id, 'scale');
-    refreshEditor();
-  });
-
-  fillModeCustom.addEventListener('change', () => {
-    if (!fillModeCustom.checked || !currentItem) return;
-    setItemFillMode(currentItem.id, 'custom');
-    refreshEditor();
+    const hit = getItemAtPoint(getState(), px, py);
+    if (hit) selectItem(hit.item, hit.group);
   });
 
   centerLockInput.addEventListener('change', () => {
     if (!currentItem) return;
-    setItemCenterLock(currentItem.id, centerLockInput.checked);
+    setCurrentCenterLock(centerLockInput.checked);
     refreshEditor();
   });
 
   cropZoomInput.addEventListener('input', () => {
     if (!currentItem) return;
-    updateItemCrop(currentItem.id, { zoom: parseFloat(cropZoomInput.value) });
+    updateCurrentCrop({ zoom: parseFloat(cropZoomInput.value) });
     renderFreeCropPreview();
   });
 
   cropWidthPercentInput.addEventListener('input', () => {
     if (!currentItem) return;
-    updateItemCrop(currentItem.id, { widthPercent: Number(cropWidthPercentInput.value) });
+    updateCurrentCrop({ widthPercent: Number(cropWidthPercentInput.value) });
     renderLockedPreview();
   });
 
   cropResetButton.addEventListener('click', () => {
     if (!currentItem) return;
-    resetItemCustom(currentItem.id);
+    resetCurrentCrop();
     refreshEditor();
   });
 
+  cropDoneButton.addEventListener('click', () => {
+    deselectItem();
+  });
+
   onChange((state) => {
-    if (currentItem && !state.items.some((item) => item.id === currentItem.id)) {
+    if (!currentItem) return;
+
+    if (currentGroup) {
+      const group = state.items.find((item) => item.id === currentGroup.id && item.type === 'group');
+      if (!group || !group.children.some((c) => c.id === currentItem.id)) {
+        deselectItem();
+      }
+      return;
+    }
+
+    if (!state.items.some((item) => item.id === currentItem.id)) {
       deselectItem();
     }
   });
@@ -89,8 +93,9 @@ export function initEditor() {
   initResizeHandle();
 }
 
-function selectItem(item) {
+function selectItem(item, group) {
   currentItem = item;
+  currentGroup = group;
   editorEmptyHint.hidden = true;
   imageEditorBody.hidden = false;
   updateSelectedLabel();
@@ -99,6 +104,7 @@ function selectItem(item) {
 
 function deselectItem() {
   currentItem = null;
+  currentGroup = null;
   editorEmptyHint.hidden = false;
   imageEditorBody.hidden = true;
   updateSelectedLabel();
@@ -109,18 +115,44 @@ function updateSelectedLabel() {
     editorSelectedLabel.textContent = '';
     return;
   }
-  const index = getState().items.findIndex((item) => item.id === currentItem.id);
-  editorSelectedLabel.textContent = ` - 图片 ${index + 1}`;
+
+  const targetId = currentGroup ? currentGroup.id : currentItem.id;
+  const rowIndex = getState().items.findIndex((item) => item.id === targetId);
+
+  if (currentGroup) {
+    const childIndex = currentGroup.children.findIndex((c) => c.id === currentItem.id);
+    editorSelectedLabel.textContent = ` - 第${rowIndex + 1}行 · ${childIndex + 1}/${currentGroup.children.length}`;
+  } else {
+    editorSelectedLabel.textContent = ` - 行${rowIndex + 1}`;
+  }
+}
+
+function updateCurrentCrop(partial) {
+  if (currentGroup) {
+    updateGroupChildCrop(currentGroup.id, currentItem.id, partial);
+  } else {
+    updateItemCrop(currentItem.id, partial);
+  }
+}
+
+function setCurrentCenterLock(value) {
+  if (currentGroup) {
+    setGroupChildCenterLock(currentGroup.id, currentItem.id, value);
+  } else {
+    setItemCenterLock(currentItem.id, value);
+  }
+}
+
+function resetCurrentCrop() {
+  if (currentGroup) {
+    resetGroupChildCrop(currentGroup.id, currentItem.id);
+  } else {
+    resetItemCrop(currentItem.id);
+  }
 }
 
 function refreshEditor() {
   if (!currentItem) return;
-
-  fillModeScale.checked = currentItem.fillMode !== 'custom';
-  fillModeCustom.checked = currentItem.fillMode === 'custom';
-  customCropControls.hidden = currentItem.fillMode !== 'custom';
-
-  if (currentItem.fillMode !== 'custom') return;
 
   centerLockInput.checked = currentItem.centerLock;
   freeCropControls.hidden = currentItem.centerLock;
@@ -135,37 +167,62 @@ function refreshEditor() {
   }
 }
 
+function getPreviewGeometry() {
+  if (currentGroup) {
+    const cellHeight = PREVIEW_W * currentGroup.heightRatio * currentGroup.children.length;
+    return { cellWidth: PREVIEW_W, cellHeight, source: computeCoverSource(currentItem, PREVIEW_W, cellHeight) };
+  }
+  const geo = computeItemGeometry(currentItem, PREVIEW_W);
+  return { cellWidth: PREVIEW_W, cellHeight: geo.height, source: geo.source };
+}
+
 function renderFreeCropPreview() {
   const item = currentItem;
-  const geo = computeItemGeometry(item, PREVIEW_W);
+  const { cellWidth, cellHeight, source } = getPreviewGeometry();
 
-  cropPreviewCanvas.width = PREVIEW_W;
-  cropPreviewCanvas.height = Math.max(1, Math.round(geo.height));
+  cropPreviewCanvas.width = cellWidth;
+  cropPreviewCanvas.height = Math.max(1, Math.round(cellHeight));
 
-  if (geo.source) {
-    const { sx, sy, sw, sh } = geo.source;
-    cropPreviewCtx.drawImage(item.img, sx, sy, sw, sh, geo.dx, 0, geo.dw, geo.dh);
-  } else {
-    cropPreviewCtx.drawImage(item.img, geo.dx, 0, geo.dw, geo.dh);
-  }
+  const { sx, sy, sw, sh } = source;
+  cropPreviewCtx.drawImage(item.img, sx, sy, sw, sh, 0, 0, cropPreviewCanvas.width, cropPreviewCanvas.height);
 }
 
 function renderLockedPreview() {
   const item = currentItem;
-  const geo = computeItemGeometry(item, PREVIEW_W);
+  const { cellWidth, cellHeight, source } = getPreviewGeometry();
+  const wp = item.crop.widthPercent / 100;
 
-  cropPreviewCanvasLocked.width = PREVIEW_W;
-  cropPreviewCanvasLocked.height = Math.max(1, Math.round(geo.height));
+  let renderWidth;
+  let renderHeight;
+  let offX;
+  let offY;
+  let canvasW;
+  let canvasH;
+
+  if (currentGroup) {
+    renderWidth = cellWidth * wp;
+    renderHeight = cellHeight * wp;
+    offX = (cellWidth - renderWidth) / 2;
+    offY = (cellHeight - renderHeight) / 2;
+    canvasW = cellWidth;
+    canvasH = cellHeight;
+  } else {
+    renderWidth = cellWidth * wp;
+    renderHeight = renderWidth * item.crop.heightRatio;
+    offX = (cellWidth - renderWidth) / 2;
+    offY = 0;
+    canvasW = cellWidth;
+    canvasH = renderHeight;
+  }
+
+  cropPreviewCanvasLocked.width = canvasW;
+  cropPreviewCanvasLocked.height = Math.max(1, Math.round(canvasH));
 
   cropPreviewLockedCtx.fillStyle = getState().margin.color;
   cropPreviewLockedCtx.fillRect(0, 0, cropPreviewCanvasLocked.width, cropPreviewCanvasLocked.height);
 
-  if (geo.source) {
-    const { sx, sy, sw, sh } = geo.source;
-    cropPreviewLockedCtx.drawImage(item.img, sx, sy, sw, sh, geo.dx, 0, geo.dw, geo.dh);
-  } else {
-    cropPreviewLockedCtx.drawImage(item.img, geo.dx, 0, geo.dw, geo.dh);
-  }
+  const { sx, sy, sw, sh } = source;
+  cropPreviewLockedCtx.drawImage(item.img, sx, sy, sw, sh, offX, offY, renderWidth, renderHeight);
 }
 
 function initDragToPan() {
@@ -188,14 +245,13 @@ function initDragToPan() {
   window.addEventListener('mousemove', (e) => {
     if (!dragging || !currentItem) return;
 
-    const geo = computeItemGeometry(currentItem, PREVIEW_W);
-    if (!geo.source) return;
+    const { source } = getPreviewGeometry();
 
     const rect = cropPreviewCanvas.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
 
-    const scaleX = geo.source.sw / rect.width;
-    const scaleY = geo.source.sh / rect.height;
+    const scaleX = source.sw / rect.width;
+    const scaleY = source.sh / rect.height;
 
     const deltaX = (e.clientX - startX) * scaleX;
     const deltaY = (e.clientY - startY) * scaleY;
@@ -203,7 +259,7 @@ function initDragToPan() {
     const offsetX = clamp(startOffsetX - deltaX / currentItem.naturalWidth, 0, 1);
     const offsetY = clamp(startOffsetY - deltaY / currentItem.naturalHeight, 0, 1);
 
-    updateItemCrop(currentItem.id, { offsetX, offsetY });
+    updateCurrentCrop({ offsetX, offsetY });
     renderFreeCropPreview();
   });
 
@@ -221,7 +277,7 @@ function initResizeHandle() {
     if (!currentItem || currentItem.centerLock) return;
     dragging = true;
     startY = e.clientY;
-    startRatio = currentItem.crop.heightRatio;
+    startRatio = currentGroup ? currentGroup.heightRatio : currentItem.crop.heightRatio;
     e.preventDefault();
   });
 
@@ -232,9 +288,16 @@ function initResizeHandle() {
     if (rect.width === 0) return;
 
     const deltaRatio = (e.clientY - startY) / rect.width;
-    const heightRatio = clamp(startRatio + deltaRatio, 0.1, 5);
 
-    updateItemCrop(currentItem.id, { heightRatio });
+    if (currentGroup) {
+      const n = currentGroup.children.length;
+      const heightRatio = clamp(startRatio + deltaRatio / n, 0.1, 5);
+      updateGroupHeightRatio(currentGroup.id, heightRatio);
+    } else {
+      const heightRatio = clamp(startRatio + deltaRatio, 0.1, 5);
+      updateItemCrop(currentItem.id, { heightRatio });
+    }
+
     renderFreeCropPreview();
   });
 

@@ -1,4 +1,4 @@
-import { createImageItem, loadImageElement } from './utils.js';
+import { createImageItem, loadImageElement, generateId } from './utils.js';
 
 const state = {
   items: [],
@@ -32,6 +32,13 @@ export function addImages(files) {
         item.img = img;
         item.naturalWidth = img.naturalWidth;
         item.naturalHeight = img.naturalHeight;
+        item.crop = {
+          heightRatio: img.naturalHeight / img.naturalWidth,
+          zoom: 1,
+          offsetX: 0.5,
+          offsetY: 0,
+          widthPercent: 100,
+        };
         notifyChange();
       })
       .catch(() => {
@@ -44,7 +51,11 @@ export function removeImage(id) {
   const index = state.items.findIndex((item) => item.id === id);
   if (index === -1) return;
   const [removed] = state.items.splice(index, 1);
-  URL.revokeObjectURL(removed.src);
+  if (removed.type === 'group') {
+    removed.children.forEach((c) => URL.revokeObjectURL(c.src));
+  } else {
+    URL.revokeObjectURL(removed.src);
+  }
   notifyChange();
 }
 
@@ -91,22 +102,6 @@ function findItem(id) {
   return state.items.find((item) => item.id === id);
 }
 
-export function setItemFillMode(id, mode) {
-  const item = findItem(id);
-  if (!item) return;
-  item.fillMode = mode;
-  if (mode === 'custom' && !item.crop) {
-    item.crop = {
-      heightRatio: item.naturalHeight / item.naturalWidth,
-      zoom: 1,
-      offsetX: 0.5,
-      offsetY: 0,
-      widthPercent: 100,
-    };
-  }
-  notifyChange();
-}
-
 export function setItemCenterLock(id, value) {
   const item = findItem(id);
   if (!item) return;
@@ -121,19 +116,111 @@ export function updateItemCrop(id, partial) {
   notifyChange();
 }
 
-export function resetItemCustom(id) {
+export function resetItemCrop(id) {
   const item = findItem(id);
   if (!item) return;
-  item.fillMode = 'scale';
   item.centerLock = false;
-  item.crop = null;
+  item.crop = {
+    heightRatio: item.naturalHeight / item.naturalWidth,
+    zoom: 1,
+    offsetX: 0.5,
+    offsetY: 0,
+    widthPercent: 100,
+  };
+  notifyChange();
+}
+
+export function mergeIntoGroup(ids) {
+  const indices = ids
+    .map((id) => state.items.findIndex((i) => i.id === id))
+    .filter((i) => i !== -1)
+    .sort((a, b) => a - b);
+  if (indices.length < 2) return;
+
+  const children = indices.map((i) => state.items[i]);
+  children.forEach((child) => {
+    child.centerLock = false;
+    child.crop = { zoom: 1, offsetX: 0.5, offsetY: 0.5, widthPercent: 100 };
+  });
+
+  const ratios = children.map((c) => (c.naturalWidth > 0 ? c.naturalHeight / c.naturalWidth : 1));
+  const maxRatio = Math.max(...ratios);
+
+  const group = {
+    id: generateId(),
+    type: 'group',
+    heightRatio: maxRatio / children.length,
+    children,
+  };
+
+  for (let k = indices.length - 1; k >= 0; k--) state.items.splice(indices[k], 1);
+  state.items.splice(indices[0], 0, group);
+  notifyChange();
+}
+
+export function ungroupItem(groupId) {
+  const idx = state.items.findIndex((i) => i.id === groupId && i.type === 'group');
+  if (idx === -1) return;
+  const group = state.items[idx];
+  group.children.forEach((child) => {
+    child.centerLock = false;
+    child.crop = {
+      heightRatio: child.naturalHeight / child.naturalWidth,
+      zoom: 1,
+      offsetX: 0.5,
+      offsetY: 0,
+      widthPercent: 100,
+    };
+  });
+  state.items.splice(idx, 1, ...group.children);
+  notifyChange();
+}
+
+function findGroupChild(groupId, childId) {
+  const group = state.items.find((i) => i.id === groupId && i.type === 'group');
+  const child = group?.children.find((c) => c.id === childId);
+  return child ? { group, child } : {};
+}
+
+export function updateGroupChildCrop(groupId, childId, partial) {
+  const { child } = findGroupChild(groupId, childId);
+  if (!child) return;
+  Object.assign(child.crop, partial);
+  notifyChange();
+}
+
+export function setGroupChildCenterLock(groupId, childId, value) {
+  const { child } = findGroupChild(groupId, childId);
+  if (!child) return;
+  child.centerLock = value;
+  notifyChange();
+}
+
+export function resetGroupChildCrop(groupId, childId) {
+  const { child } = findGroupChild(groupId, childId);
+  if (!child) return;
+  child.centerLock = false;
+  child.crop = { zoom: 1, offsetX: 0.5, offsetY: 0.5, widthPercent: 100 };
+  notifyChange();
+}
+
+export function updateGroupHeightRatio(groupId, heightRatio) {
+  const group = state.items.find((i) => i.id === groupId && i.type === 'group');
+  if (!group) return;
+  group.heightRatio = heightRatio;
   notifyChange();
 }
 
 export function getMaxNaturalWidth() {
   const widths = state.items
-    .filter((item) => item.naturalWidth > 0)
-    .map((item) => item.naturalWidth);
+    .map((item) => {
+      if (item.type === 'group') {
+        const maxChildWidth = Math.max(...item.children.map((c) => c.naturalWidth || 0));
+        return maxChildWidth * item.children.length;
+      }
+      return item.naturalWidth || 0;
+    })
+    .filter((w) => w > 0);
   return widths.length ? Math.max(...widths) : 0;
 }
 
