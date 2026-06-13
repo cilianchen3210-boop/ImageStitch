@@ -15,6 +15,8 @@ const marginSizeInput = document.getElementById('marginSizeInput');
 const marginSizeValueLabel = document.getElementById('marginSizeValueLabel');
 const marginSizeValueInput = document.getElementById('marginSizeValueInput');
 const marginColorInput = document.getElementById('marginColorInput');
+const hslToggleInput = document.getElementById('hslToggleInput');
+const marginHslControls = document.getElementById('marginHslControls');
 const marginHueInput = document.getElementById('marginHueInput');
 const marginSatInput = document.getElementById('marginSatInput');
 const marginLightInput = document.getElementById('marginLightInput');
@@ -60,6 +62,10 @@ export function initControls() {
 
   marginColorInput.addEventListener('input', () => {
     applyMarginColor(marginColorInput.value, marginColorInput);
+  });
+
+  hslToggleInput.addEventListener('change', () => {
+    marginHslControls.hidden = !hslToggleInput.checked;
   });
 
   [marginHueInput, marginSatInput, marginLightInput].forEach((input) => {

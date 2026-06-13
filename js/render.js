@@ -76,8 +76,10 @@ export function computeItemGeometry(item, exportWidth) {
   if (item.type === 'group') {
     const cellHeight = item.heightRatio * exportWidth;
     const n = item.children.length;
-    const cellWidth = exportWidth / n;
-    const cells = item.children.map((child, idx) => {
+    let x = 0;
+    const cells = item.children.map((child) => {
+      const widthRatio = child.widthRatio ?? 1 / n;
+      const cellWidth = widthRatio * exportWidth;
       const source = computeCoverSource(child, cellWidth, cellHeight);
       let renderWidth = cellWidth;
       let renderHeight = cellHeight;
@@ -90,24 +92,28 @@ export function computeItemGeometry(item, exportWidth) {
         offX = (cellWidth - renderWidth) / 2;
         offY = (cellHeight - renderHeight) / 2;
       }
-      return { x: idx * cellWidth, width: cellWidth, source, renderWidth, renderHeight, offX, offY, child };
+      const cell = { x, width: cellWidth, source, renderWidth, renderHeight, offX, offY, child };
+      x += cellWidth;
+      return cell;
     });
     return { height: cellHeight, dx: 0, dw: exportWidth, dh: cellHeight, source: null, cells };
   }
 
   const crop = item.crop;
-
   const height = crop.heightRatio * exportWidth;
-  const baseScale = Math.max(exportWidth / item.naturalWidth, height / item.naturalHeight);
-  const effectiveScale = baseScale * crop.zoom;
-  const sw = exportWidth / effectiveScale;
-  const sh = height / effectiveScale;
-  const sx = clamp(crop.offsetX * item.naturalWidth - sw / 2, 0, item.naturalWidth - sw);
-  const sy = clamp(crop.offsetY * item.naturalHeight, 0, item.naturalHeight - sh);
 
   if (item.centerLock) {
+    const widthRatio = item.widthRatio ?? 1;
+    const baseScale = Math.max(exportWidth / item.naturalWidth, height / item.naturalHeight);
+    const effectiveScale = baseScale * crop.zoom;
+    const sw0 = exportWidth / effectiveScale;
+    const sh = height / effectiveScale;
+    const sw = sw0 * widthRatio;
+    const sx = clamp(crop.offsetX * item.naturalWidth - sw0 / 2, 0, item.naturalWidth - sw);
+    const sy = clamp(crop.offsetY * item.naturalHeight, 0, item.naturalHeight - sh);
+
     const renderWidth = exportWidth * (crop.widthPercent / 100);
-    const renderHeight = renderWidth * crop.heightRatio;
+    const renderHeight = renderWidth * (sh / sw);
     return {
       height: renderHeight,
       dx: (exportWidth - renderWidth) / 2,
@@ -117,7 +123,17 @@ export function computeItemGeometry(item, exportWidth) {
     };
   }
 
-  return { height, dx: 0, dw: exportWidth, dh: height, source: { sx, sy, sw, sh } };
+  const widthRatio = item.widthRatio ?? 1;
+  const baseScale = Math.max(exportWidth / item.naturalWidth, height / item.naturalHeight);
+  const effectiveScale = baseScale * crop.zoom;
+  const sw0 = exportWidth / effectiveScale;
+  const sh = height / effectiveScale;
+  const sw = sw0 * widthRatio;
+  const sx = clamp(crop.offsetX * item.naturalWidth - sw0 / 2, 0, item.naturalWidth - sw);
+  const sy = clamp(crop.offsetY * item.naturalHeight, 0, item.naturalHeight - sh);
+
+  const dh = height / widthRatio;
+  return { height: dh, dx: 0, dw: exportWidth, dh, source: { sx, sy, sw, sh } };
 }
 
 function clamp(value, lo, hi) {

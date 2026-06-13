@@ -39,6 +39,7 @@ export function addImages(files) {
           offsetY: 0,
           widthPercent: 100,
         };
+        item.widthRatio = 1;
         notifyChange();
       })
       .catch(() => {
@@ -127,6 +128,14 @@ export function resetItemCrop(id) {
     offsetY: 0,
     widthPercent: 100,
   };
+  item.widthRatio = 1;
+  notifyChange();
+}
+
+export function updateItemWidthRatio(id, widthRatio) {
+  const item = findItem(id);
+  if (!item) return;
+  item.widthRatio = clamp(widthRatio, 0.05, 1);
   notifyChange();
 }
 
@@ -141,6 +150,7 @@ export function mergeIntoGroup(ids) {
   children.forEach((child) => {
     child.centerLock = false;
     child.crop = { zoom: 1, offsetX: 0.5, offsetY: 0.5, widthPercent: 100 };
+    child.widthRatio = 1 / children.length;
   });
 
   const ratios = children.map((c) => (c.naturalWidth > 0 ? c.naturalHeight / c.naturalWidth : 1));
@@ -171,6 +181,7 @@ export function ungroupItem(groupId) {
       offsetY: 0,
       widthPercent: 100,
     };
+    child.widthRatio = 1;
   });
   state.items.splice(idx, 1, ...group.children);
   notifyChange();
@@ -209,6 +220,36 @@ export function updateGroupHeightRatio(groupId, heightRatio) {
   if (!group) return;
   group.heightRatio = heightRatio;
   notifyChange();
+}
+
+export function updateGroupChildWidthRatio(groupId, childId, widthRatio) {
+  const group = state.items.find((i) => i.id === groupId && i.type === 'group');
+  if (!group) return;
+
+  const n = group.children.length;
+  if (n < 2) return;
+
+  const minRatio = 0.05;
+  const clamped = clamp(widthRatio, minRatio, 1 - minRatio * (n - 1));
+
+  const target = group.children.find((c) => c.id === childId);
+  if (!target) return;
+
+  const others = group.children.filter((c) => c.id !== childId);
+  const othersSum = others.reduce((sum, c) => sum + (c.widthRatio ?? 1 / n), 0);
+  const remaining = 1 - clamped;
+
+  target.widthRatio = clamped;
+  others.forEach((c) => {
+    const current = c.widthRatio ?? 1 / n;
+    c.widthRatio = othersSum > 0 ? (current / othersSum) * remaining : remaining / others.length;
+  });
+
+  notifyChange();
+}
+
+function clamp(value, lo, hi) {
+  return Math.min(Math.max(value, lo), hi);
 }
 
 export function getMaxNaturalWidth() {

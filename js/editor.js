@@ -8,6 +8,8 @@ import {
   setGroupChildCenterLock,
   resetGroupChildCrop,
   updateGroupHeightRatio,
+  updateGroupChildWidthRatio,
+  updateItemWidthRatio,
 } from './state.js';
 import { computeItemGeometry, computeCoverSource, getItemAtPoint } from './render.js';
 
@@ -22,6 +24,7 @@ const centerLockControls = document.getElementById('centerLockControls');
 const cropPreviewCanvas = document.getElementById('cropPreviewCanvas');
 const cropPreviewCtx = cropPreviewCanvas.getContext('2d');
 const cropResizeHandle = document.getElementById('cropResizeHandle');
+const cropResizeHandleH = document.getElementById('cropResizeHandleH');
 const cropZoomInput = document.getElementById('cropZoomInput');
 const cropPreviewCanvasLocked = document.getElementById('cropPreviewCanvasLocked');
 const cropPreviewLockedCtx = cropPreviewCanvasLocked.getContext('2d');
@@ -91,6 +94,7 @@ export function initEditor() {
 
   initDragToPan();
   initResizeHandle();
+  initResizeHandleH();
 }
 
 function selectItem(item, group) {
@@ -169,7 +173,8 @@ function refreshEditor() {
 
 function getPreviewGeometry() {
   if (currentGroup) {
-    const cellHeight = PREVIEW_W * currentGroup.heightRatio * currentGroup.children.length;
+    const widthRatio = currentItem.widthRatio ?? 1 / currentGroup.children.length;
+    const cellHeight = (PREVIEW_W * currentGroup.heightRatio) / widthRatio;
     return { cellWidth: PREVIEW_W, cellHeight, source: computeCoverSource(currentItem, PREVIEW_W, cellHeight) };
   }
   const geo = computeItemGeometry(currentItem, PREVIEW_W);
@@ -190,6 +195,7 @@ function renderFreeCropPreview() {
 function renderLockedPreview() {
   const item = currentItem;
   const { cellWidth, cellHeight, source } = getPreviewGeometry();
+  const { sx, sy, sw, sh } = source;
   const wp = item.crop.widthPercent / 100;
 
   let renderWidth;
@@ -208,7 +214,7 @@ function renderLockedPreview() {
     canvasH = cellHeight;
   } else {
     renderWidth = cellWidth * wp;
-    renderHeight = renderWidth * item.crop.heightRatio;
+    renderHeight = renderWidth * (sh / sw);
     offX = (cellWidth - renderWidth) / 2;
     offY = 0;
     canvasW = cellWidth;
@@ -221,7 +227,6 @@ function renderLockedPreview() {
   cropPreviewLockedCtx.fillStyle = getState().margin.color;
   cropPreviewLockedCtx.fillRect(0, 0, cropPreviewCanvasLocked.width, cropPreviewCanvasLocked.height);
 
-  const { sx, sy, sw, sh } = source;
   cropPreviewLockedCtx.drawImage(item.img, sx, sy, sw, sh, offX, offY, renderWidth, renderHeight);
 }
 
@@ -290,12 +295,50 @@ function initResizeHandle() {
     const deltaRatio = (e.clientY - startY) / rect.width;
 
     if (currentGroup) {
-      const n = currentGroup.children.length;
-      const heightRatio = clamp(startRatio + deltaRatio / n, 0.1, 5);
+      const widthRatio = currentItem.widthRatio ?? 1 / currentGroup.children.length;
+      const heightRatio = clamp(startRatio + deltaRatio * widthRatio, 0.1, 5);
       updateGroupHeightRatio(currentGroup.id, heightRatio);
     } else {
       const heightRatio = clamp(startRatio + deltaRatio, 0.1, 5);
       updateItemCrop(currentItem.id, { heightRatio });
+    }
+
+    renderFreeCropPreview();
+  });
+
+  window.addEventListener('mouseup', () => {
+    dragging = false;
+  });
+}
+
+function initResizeHandleH() {
+  let dragging = false;
+  let startX = 0;
+  let startRatio = 1;
+
+  cropResizeHandleH.addEventListener('mousedown', (e) => {
+    if (!currentItem || currentItem.centerLock) return;
+    dragging = true;
+    startX = e.clientX;
+    startRatio = currentGroup
+      ? currentItem.widthRatio ?? 1 / currentGroup.children.length
+      : currentItem.widthRatio ?? 1;
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging || !currentItem) return;
+
+    const rect = cropPreviewCanvas.getBoundingClientRect();
+    if (rect.width === 0) return;
+
+    const deltaRatio = (e.clientX - startX) / rect.width;
+
+    if (currentGroup) {
+      const widthRatio = startRatio + deltaRatio * startRatio;
+      updateGroupChildWidthRatio(currentGroup.id, currentItem.id, widthRatio);
+    } else {
+      updateItemWidthRatio(currentItem.id, startRatio + deltaRatio);
     }
 
     renderFreeCropPreview();

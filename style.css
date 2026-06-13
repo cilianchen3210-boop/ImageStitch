@@ -26,11 +26,16 @@ body {
   padding: 1rem;
 }
 
+.upload-row {
+  display: flex;
+  gap: .75rem;
+}
+
 .upload-toolbar {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
   gap: .5rem;
-  margin-bottom: .75rem;
+  flex-shrink: 0;
 }
 
 .upload-toolbar button {
@@ -47,6 +52,7 @@ body {
 }
 
 .upload-grid {
+  flex: 1;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 8px;
@@ -328,6 +334,16 @@ body {
   margin-bottom: .6rem;
 }
 
+#marginHslControls {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+}
+
+#marginHslControls[hidden] {
+  display: none;
+}
+
 .slider-row input[type="range"] {
   flex: 1;
 }
@@ -485,6 +501,18 @@ body {
   border-radius: 4px;
   background: #6b6bf0;
   cursor: ns-resize;
+}
+
+.crop-resize-handle-h {
+  position: absolute;
+  top: 50%;
+  right: -6px;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 40px;
+  border-radius: 4px;
+  background: #6b6bf0;
+  cursor: ew-resize;
 }
 
 #cropPreviewCanvasLocked {

@@ -10,14 +10,16 @@
   <div class="app-layout">
     <header class="upload-region" id="uploadRegion">
       <input type="file" id="fileInput" accept="image/*" multiple hidden>
-      <div class="upload-toolbar">
-        <button type="button" id="mergeButton" disabled>合并</button>
-        <button type="button" id="ungroupButton" disabled>拆分</button>
-      </div>
-      <div class="upload-grid" id="uploadGrid">
-        <div class="upload-placeholder" id="uploadPlaceholder">
-          <span class="upload-placeholder-text">点击上传图片</span>
-          <span class="upload-placeholder-hint">支持格式：JPG、PNG、GIF、WebP、BMP</span>
+      <div class="upload-row">
+        <div class="upload-grid" id="uploadGrid">
+          <div class="upload-placeholder" id="uploadPlaceholder">
+            <span class="upload-placeholder-text">点击上传图片</span>
+            <span class="upload-placeholder-hint">支持格式：JPG、PNG、GIF、WebP、BMP</span>
+          </div>
+        </div>
+        <div class="upload-toolbar">
+          <button type="button" id="mergeButton" disabled>合并</button>
+          <button type="button" id="ungroupButton" disabled>拆分</button>
         </div>
       </div>
     </header>
@@ -46,18 +48,24 @@
           <label>边距颜色
             <input type="color" id="marginColorInput" value="#ffffff">
           </label>
-          <label class="slider-row">色相 H
-            <input type="range" id="marginHueInput" min="0" max="360" step="1" value="0">
-            <span id="marginHueValue">0</span>
+          <label class="checkbox-label">
+            <input type="checkbox" id="hslToggleInput">
+            HSL
           </label>
-          <label class="slider-row">饱和度 S
-            <input type="range" id="marginSatInput" min="0" max="100" step="1" value="0">
-            <span id="marginSatValue">0%</span>
-          </label>
-          <label class="slider-row">明度 L
-            <input type="range" id="marginLightInput" min="0" max="100" step="1" value="100">
-            <span id="marginLightValue">100%</span>
-          </label>
+          <div id="marginHslControls" hidden>
+            <label class="slider-row">色相 H
+              <input type="range" id="marginHueInput" min="0" max="360" step="1" value="0">
+              <span id="marginHueValue">0</span>
+            </label>
+            <label class="slider-row">饱和度 S
+              <input type="range" id="marginSatInput" min="0" max="100" step="1" value="0">
+              <span id="marginSatValue">0%</span>
+            </label>
+            <label class="slider-row">明度 L
+              <input type="range" id="marginLightInput" min="0" max="100" step="1" value="100">
+              <span id="marginLightValue">100%</span>
+            </label>
+          </div>
         </fieldset>
 
         <fieldset class="control-group">
@@ -97,6 +105,7 @@
                 <div class="crop-preview-wrap">
                   <canvas id="cropPreviewCanvas"></canvas>
                   <div class="crop-resize-handle" id="cropResizeHandle"></div>
+                  <div class="crop-resize-handle-h" id="cropResizeHandleH"></div>
                 </div>
                 <label class="slider-row">缩放
                   <input type="range" id="cropZoomInput" min="1" max="4" step="0.01" value="1">
