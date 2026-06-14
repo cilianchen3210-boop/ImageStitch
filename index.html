@@ -36,6 +36,20 @@
 
       <aside class="settings-region" id="settingsRegion">
         <fieldset class="control-group">
+          <legend>拼接模式</legend>
+          <div class="radio-row">
+            <label class="radio-label">
+              <input type="radio" name="stitchMode" id="stitchModeVertical" value="vertical" checked>
+              垂直
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="stitchMode" id="stitchModeHorizontal" value="horizontal">
+              水平
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="control-group">
           <legend>边距</legend>
           <label class="checkbox-label">
             <input type="checkbox" id="outerBorderInput">
@@ -74,7 +88,7 @@
 
         <fieldset class="control-group">
           <legend>导出尺寸</legend>
-          <label>导出宽度 (px)
+          <label><span id="exportSizeLabelText">导出宽度 (px)</span>
             <input type="number" id="exportWidthInput" min="1" placeholder="">
           </label>
           <span class="reference-text" id="exportWidthReference" hidden></span>

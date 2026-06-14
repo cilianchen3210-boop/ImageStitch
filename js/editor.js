@@ -83,12 +83,17 @@ export function initEditor() {
       const group = state.items.find((item) => item.id === currentGroup.id && item.type === 'group');
       if (!group || !group.children.some((c) => c.id === currentItem.id)) {
         deselectItem();
+        return;
       }
+    } else if (!state.items.some((item) => item.id === currentItem.id)) {
+      deselectItem();
       return;
     }
 
-    if (!state.items.some((item) => item.id === currentItem.id)) {
-      deselectItem();
+    if (currentItem.centerLock) {
+      renderLockedPreview();
+    } else {
+      renderFreeCropPreview();
     }
   });
 
@@ -172,13 +177,20 @@ function refreshEditor() {
 }
 
 function getPreviewGeometry() {
+  const horizontal = getState().stitchMode === 'horizontal';
+
   if (currentGroup) {
     const widthRatio = currentItem.widthRatio ?? 1 / currentGroup.children.length;
-    const cellHeight = (PREVIEW_W * currentGroup.heightRatio) / widthRatio;
-    return { cellWidth: PREVIEW_W, cellHeight, source: computeCoverSource(currentItem, PREVIEW_W, cellHeight) };
+    const mainRatio = horizontal ? 1 / currentGroup.heightRatio : currentGroup.heightRatio;
+    const otherSize = (PREVIEW_W * mainRatio) / widthRatio;
+    const cellWidth = horizontal ? otherSize : PREVIEW_W;
+    const cellHeight = horizontal ? PREVIEW_W : otherSize;
+    return { cellWidth, cellHeight, source: computeCoverSource(currentItem, cellWidth, cellHeight) };
   }
-  const geo = computeItemGeometry(currentItem, PREVIEW_W);
-  return { cellWidth: PREVIEW_W, cellHeight: geo.height, source: geo.source };
+  const geo = computeItemGeometry(currentItem, PREVIEW_W, getState().stitchMode);
+  const cellWidth = horizontal ? geo.main : PREVIEW_W;
+  const cellHeight = horizontal ? PREVIEW_W : geo.main;
+  return { cellWidth, cellHeight, source: geo.source };
 }
 
 function renderFreeCropPreview() {
@@ -194,6 +206,7 @@ function renderFreeCropPreview() {
 
 function renderLockedPreview() {
   const item = currentItem;
+  const horizontal = getState().stitchMode === 'horizontal';
   const { cellWidth, cellHeight, source } = getPreviewGeometry();
   const { sx, sy, sw, sh } = source;
   const wp = item.crop.widthPercent / 100;
@@ -211,6 +224,13 @@ function renderLockedPreview() {
     offX = (cellWidth - renderWidth) / 2;
     offY = (cellHeight - renderHeight) / 2;
     canvasW = cellWidth;
+    canvasH = cellHeight;
+  } else if (horizontal) {
+    renderHeight = cellHeight * wp;
+    renderWidth = renderHeight * (sw / sh);
+    offX = 0;
+    offY = (cellHeight - renderHeight) / 2;
+    canvasW = renderWidth;
     canvasH = cellHeight;
   } else {
     renderWidth = cellWidth * wp;
@@ -273,34 +293,53 @@ function initDragToPan() {
   });
 }
 
+// 竖向拼接时，cropResizeHandle（底部把手）调整主轴尺寸（heightRatio）；
+// 横向拼接时，主轴变为水平方向，该把手改为调整交叉轴缩放（widthRatio）。
 function initResizeHandle() {
   let dragging = false;
   let startY = 0;
   let startRatio = 1;
+  let horizontal = false;
+  let startRect = null;
 
   cropResizeHandle.addEventListener('mousedown', (e) => {
     if (!currentItem || currentItem.centerLock) return;
+    startRect = cropPreviewCanvas.getBoundingClientRect();
+    if (startRect.width === 0 || startRect.height === 0) return;
     dragging = true;
     startY = e.clientY;
-    startRatio = currentGroup ? currentGroup.heightRatio : currentItem.crop.heightRatio;
+    horizontal = getState().stitchMode === 'horizontal';
+    if (horizontal) {
+      startRatio = currentGroup
+        ? currentItem.widthRatio ?? 1 / currentGroup.children.length
+        : currentItem.widthRatio ?? 1;
+    } else {
+      startRatio = currentGroup ? currentGroup.heightRatio : currentItem.crop.heightRatio;
+    }
     e.preventDefault();
   });
 
   window.addEventListener('mousemove', (e) => {
     if (!dragging || !currentItem) return;
 
-    const rect = cropPreviewCanvas.getBoundingClientRect();
-    if (rect.width === 0) return;
-
-    const deltaRatio = (e.clientY - startY) / rect.width;
-
-    if (currentGroup) {
-      const widthRatio = currentItem.widthRatio ?? 1 / currentGroup.children.length;
-      const heightRatio = clamp(startRatio + deltaRatio * widthRatio, 0.1, 5);
-      updateGroupHeightRatio(currentGroup.id, heightRatio);
+    if (horizontal) {
+      const deltaRatio = (e.clientY - startY) / startRect.height;
+      if (currentGroup) {
+        const widthRatio = startRatio + deltaRatio * startRatio;
+        updateGroupChildWidthRatio(currentGroup.id, currentItem.id, widthRatio);
+      } else {
+        updateItemWidthRatio(currentItem.id, startRatio + deltaRatio);
+      }
     } else {
-      const heightRatio = clamp(startRatio + deltaRatio, 0.1, 5);
-      updateItemCrop(currentItem.id, { heightRatio });
+      const deltaRatio = (e.clientY - startY) / startRect.width;
+      if (currentGroup) {
+        const widthRatio = currentItem.widthRatio ?? 1 / currentGroup.children.length;
+        const heightRatio = clamp(startRatio + deltaRatio * widthRatio, 0.1, 5);
+        updateGroupHeightRatio(currentGroup.id, heightRatio);
+      } else {
+        const heightRatio = clamp(startRatio + deltaRatio, 0.1, 5);
+        updateItemCrop(currentItem.id, { heightRatio });
+      }
     }
 
     renderFreeCropPreview();
@@ -311,34 +350,53 @@ function initResizeHandle() {
   });
 }
 
+// 竖向拼接时，cropResizeHandleH（右侧把手）调整交叉轴缩放（widthRatio）；
+// 横向拼接时，主轴变为水平方向，该把手改为调整主轴尺寸（heightRatio 的倒数）。
 function initResizeHandleH() {
   let dragging = false;
   let startX = 0;
   let startRatio = 1;
+  let horizontal = false;
+  let startRect = null;
 
   cropResizeHandleH.addEventListener('mousedown', (e) => {
     if (!currentItem || currentItem.centerLock) return;
+    startRect = cropPreviewCanvas.getBoundingClientRect();
+    if (startRect.width === 0 || startRect.height === 0) return;
     dragging = true;
     startX = e.clientX;
-    startRatio = currentGroup
-      ? currentItem.widthRatio ?? 1 / currentGroup.children.length
-      : currentItem.widthRatio ?? 1;
+    horizontal = getState().stitchMode === 'horizontal';
+    if (horizontal) {
+      startRatio = currentGroup ? 1 / currentGroup.heightRatio : 1 / currentItem.crop.heightRatio;
+    } else {
+      startRatio = currentGroup
+        ? currentItem.widthRatio ?? 1 / currentGroup.children.length
+        : currentItem.widthRatio ?? 1;
+    }
     e.preventDefault();
   });
 
   window.addEventListener('mousemove', (e) => {
     if (!dragging || !currentItem) return;
 
-    const rect = cropPreviewCanvas.getBoundingClientRect();
-    if (rect.width === 0) return;
-
-    const deltaRatio = (e.clientX - startX) / rect.width;
-
-    if (currentGroup) {
-      const widthRatio = startRatio + deltaRatio * startRatio;
-      updateGroupChildWidthRatio(currentGroup.id, currentItem.id, widthRatio);
+    if (horizontal) {
+      const deltaRatio = (e.clientX - startX) / startRect.height;
+      if (currentGroup) {
+        const widthRatio = currentItem.widthRatio ?? 1 / currentGroup.children.length;
+        const mainRatio = clamp(startRatio + deltaRatio * widthRatio, 0.1, 5);
+        updateGroupHeightRatio(currentGroup.id, 1 / mainRatio);
+      } else {
+        const mainRatio = clamp(startRatio + deltaRatio, 0.1, 5);
+        updateItemCrop(currentItem.id, { heightRatio: 1 / mainRatio });
+      }
     } else {
-      updateItemWidthRatio(currentItem.id, startRatio + deltaRatio);
+      const deltaRatio = (e.clientX - startX) / startRect.width;
+      if (currentGroup) {
+        const widthRatio = startRatio + deltaRatio * startRatio;
+        updateGroupChildWidthRatio(currentGroup.id, currentItem.id, widthRatio);
+      } else {
+        updateItemWidthRatio(currentItem.id, startRatio + deltaRatio);
+      }
     }
 
     renderFreeCropPreview();

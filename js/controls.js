@@ -4,10 +4,11 @@ import {
   setMarginSize,
   setMarginColor,
   setOuterBorder,
+  setStitchMode,
   setExportWidthCustom,
   setExportFormat,
   setExportQuality,
-  getMaxNaturalWidth,
+  getMaxNaturalCrossSize,
 } from './state.js';
 import { hexToHsl, hslToHex, normalizeHex } from './utils.js';
 
@@ -25,6 +26,9 @@ const marginHueValue = document.getElementById('marginHueValue');
 const marginSatValue = document.getElementById('marginSatValue');
 const marginLightValue = document.getElementById('marginLightValue');
 const outerBorderInput = document.getElementById('outerBorderInput');
+const stitchModeVerticalInput = document.getElementById('stitchModeVertical');
+const stitchModeHorizontalInput = document.getElementById('stitchModeHorizontal');
+const exportSizeLabelText = document.getElementById('exportSizeLabelText');
 const exportWidthInput = document.getElementById('exportWidthInput');
 const exportWidthReference = document.getElementById('exportWidthReference');
 const exportFormatSelect = document.getElementById('exportFormatSelect');
@@ -104,6 +108,15 @@ export function initControls() {
     setOuterBorder(outerBorderInput.checked);
   });
 
+  [stitchModeVerticalInput, stitchModeHorizontalInput].forEach((input) => {
+    input.addEventListener('change', () => {
+      if (!input.checked) return;
+      setStitchMode(input.value);
+      updateExportSizeLabel();
+      updateExportWidthPlaceholder();
+    });
+  });
+
   exportWidthInput.addEventListener('input', () => {
     const raw = exportWidthInput.value.trim();
     if (raw === '') {
@@ -129,8 +142,14 @@ export function initControls() {
   onChange(() => updateExportWidthPlaceholder());
 
   applyMarginColor(getState().margin.color, null);
+  updateExportSizeLabel();
   updateExportWidthPlaceholder();
   updateQualityVisibility();
+}
+
+function updateExportSizeLabel() {
+  const horizontal = getState().stitchMode === 'horizontal';
+  exportSizeLabelText.textContent = horizontal ? '导出长度 (px)' : '导出宽度 (px)';
 }
 
 function applyMarginColor(hex, skip) {
@@ -180,18 +199,21 @@ function cancelEditingMarginSize() {
 }
 
 function updateExportWidthPlaceholder() {
-  const maxWidth = getMaxNaturalWidth();
-  exportWidthInput.placeholder = maxWidth > 0 ? String(maxWidth) : '';
+  const maxSize = getMaxNaturalCrossSize();
+  exportWidthInput.placeholder = maxSize > 0 ? String(maxSize) : '';
   updateExportWidthReference();
 }
 
 function updateExportWidthReference() {
   const state = getState();
-  const maxWidth = getMaxNaturalWidth();
+  const maxSize = getMaxNaturalCrossSize();
   const hasCustom = exportWidthInput.value.trim() !== '' && state.exportWidth.custom !== null;
+  const horizontal = state.stitchMode === 'horizontal';
 
-  if (hasCustom && maxWidth > 0) {
-    exportWidthReference.textContent = `（最宽图片宽度: ${maxWidth}px）`;
+  if (hasCustom && maxSize > 0) {
+    exportWidthReference.textContent = horizontal
+      ? `（最高图片高度: ${maxSize}px）`
+      : `（最宽图片宽度: ${maxSize}px）`;
     exportWidthReference.hidden = false;
   } else {
     exportWidthReference.textContent = '';

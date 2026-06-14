@@ -1,4 +1,4 @@
-import { getEffectiveExportWidth } from './state.js';
+import { getEffectiveExportSize } from './state.js';
 
 const canvas = document.getElementById('previewCanvas');
 const ctx = canvas.getContext('2d');
@@ -42,7 +42,7 @@ export function render(state) {
         ctx.drawImage(
           cell.child.img,
           sx, sy, sw, sh,
-          pos.x + cell.x + cell.offX, pos.y + cell.offY, cell.renderWidth, cell.renderHeight
+          pos.x + cell.x + cell.offX, pos.y + cell.y + cell.offY, cell.renderWidth, cell.renderHeight
         );
       });
     } else {
@@ -72,14 +72,19 @@ export function computeCoverSource(child, w, h) {
   return { sx, sy, sw, sh };
 }
 
-export function computeItemGeometry(item, exportWidth) {
+export function computeItemGeometry(item, crossSize, stitchMode = 'vertical') {
+  const horizontal = stitchMode === 'horizontal';
+
   if (item.type === 'group') {
-    const cellHeight = item.heightRatio * exportWidth;
+    const mainRatio = horizontal ? 1 / item.heightRatio : item.heightRatio;
+    const mainSize = mainRatio * crossSize;
     const n = item.children.length;
-    let x = 0;
+    let pos = 0;
     const cells = item.children.map((child) => {
       const widthRatio = child.widthRatio ?? 1 / n;
-      const cellWidth = widthRatio * exportWidth;
+      const crossCell = widthRatio * crossSize;
+      const cellWidth = horizontal ? mainSize : crossCell;
+      const cellHeight = horizontal ? crossCell : mainSize;
       const source = computeCoverSource(child, cellWidth, cellHeight);
       let renderWidth = cellWidth;
       let renderHeight = cellHeight;
@@ -92,48 +97,70 @@ export function computeItemGeometry(item, exportWidth) {
         offX = (cellWidth - renderWidth) / 2;
         offY = (cellHeight - renderHeight) / 2;
       }
-      const cell = { x, width: cellWidth, source, renderWidth, renderHeight, offX, offY, child };
-      x += cellWidth;
+      const cell = {
+        x: horizontal ? 0 : pos,
+        y: horizontal ? pos : 0,
+        width: cellWidth,
+        height: cellHeight,
+        source,
+        renderWidth,
+        renderHeight,
+        offX,
+        offY,
+        child,
+      };
+      pos += crossCell;
       return cell;
     });
-    return { height: cellHeight, dx: 0, dw: exportWidth, dh: cellHeight, source: null, cells };
+    return horizontal
+      ? { main: mainSize, dx: 0, dy: 0, dw: mainSize, dh: crossSize, source: null, cells }
+      : { main: mainSize, dx: 0, dy: 0, dw: crossSize, dh: mainSize, source: null, cells };
   }
 
   const crop = item.crop;
-  const height = crop.heightRatio * exportWidth;
+  const mainRatio = horizontal ? 1 / crop.heightRatio : crop.heightRatio;
+  const mainFull = mainRatio * crossSize;
+  const wr = item.widthRatio ?? 1;
+
+  const natCross = horizontal ? item.naturalHeight : item.naturalWidth;
+  const natMain = horizontal ? item.naturalWidth : item.naturalHeight;
+  const offCross = horizontal ? crop.offsetY : crop.offsetX;
+  const offMain = horizontal ? crop.offsetX : crop.offsetY;
+
+  const baseScale = Math.max(crossSize / natCross, mainFull / natMain);
+  const effectiveScale = baseScale * crop.zoom;
+  const sCross0 = crossSize / effectiveScale;
+  const sMain0 = mainFull / effectiveScale;
+
+  const sCross = sCross0 * wr;
+  const sMain = sMain0;
+  const sCrossPos = clamp(offCross * natCross - sCross0 / 2, 0, natCross - sCross);
+  const sMainPos = clamp(offMain * natMain, 0, natMain - sMain);
 
   if (item.centerLock) {
-    const widthRatio = item.widthRatio ?? 1;
-    const baseScale = Math.max(exportWidth / item.naturalWidth, height / item.naturalHeight);
-    const effectiveScale = baseScale * crop.zoom;
-    const sw0 = exportWidth / effectiveScale;
-    const sh = height / effectiveScale;
-    const sw = sw0 * widthRatio;
-    const sx = clamp(crop.offsetX * item.naturalWidth - sw0 / 2, 0, item.naturalWidth - sw);
-    const sy = clamp(crop.offsetY * item.naturalHeight, 0, item.naturalHeight - sh);
+    const renderCross = crossSize * (crop.widthPercent / 100);
+    const renderMain = renderCross * (sMain / sCross);
+    const crossOffset = (crossSize - renderCross) / 2;
 
-    const renderWidth = exportWidth * (crop.widthPercent / 100);
-    const renderHeight = renderWidth * (sh / sw);
-    return {
-      height: renderHeight,
-      dx: (exportWidth - renderWidth) / 2,
-      dw: renderWidth,
-      dh: renderHeight,
-      source: { sx, sy, sw, sh },
-    };
+    const dw = horizontal ? renderMain : renderCross;
+    const dh = horizontal ? renderCross : renderMain;
+    const source = horizontal
+      ? { sx: sMainPos, sy: sCrossPos, sw: sMain, sh: sCross }
+      : { sx: sCrossPos, sy: sMainPos, sw: sCross, sh: sMain };
+
+    return horizontal
+      ? { main: renderMain, dx: 0, dy: crossOffset, dw, dh, source }
+      : { main: renderMain, dx: crossOffset, dy: 0, dw, dh, source };
   }
 
-  const widthRatio = item.widthRatio ?? 1;
-  const baseScale = Math.max(exportWidth / item.naturalWidth, height / item.naturalHeight);
-  const effectiveScale = baseScale * crop.zoom;
-  const sw0 = exportWidth / effectiveScale;
-  const sh = height / effectiveScale;
-  const sw = sw0 * widthRatio;
-  const sx = clamp(crop.offsetX * item.naturalWidth - sw0 / 2, 0, item.naturalWidth - sw);
-  const sy = clamp(crop.offsetY * item.naturalHeight, 0, item.naturalHeight - sh);
+  const dMain = mainFull / wr;
+  const dw = horizontal ? dMain : crossSize;
+  const dh = horizontal ? crossSize : dMain;
+  const source = horizontal
+    ? { sx: sMainPos, sy: sCrossPos, sw: sMain, sh: sCross }
+    : { sx: sCrossPos, sy: sMainPos, sw: sCross, sh: sMain };
 
-  const dh = height / widthRatio;
-  return { height: dh, dx: 0, dw: exportWidth, dh, source: { sx, sy, sw, sh } };
+  return { main: dMain, dx: 0, dy: 0, dw, dh, source };
 }
 
 function clamp(value, lo, hi) {
@@ -149,7 +176,10 @@ export function getItemAtPoint(state, px, py) {
     if (px >= pos.x && px <= pos.x + pos.width && py >= pos.y && py <= pos.y + pos.height) {
       const item = layout.items[i];
       if (pos.cells) {
-        const cell = pos.cells.find((c) => px >= pos.x + c.x && px <= pos.x + c.x + c.width);
+        const cell = pos.cells.find((c) =>
+          px >= pos.x + c.x && px <= pos.x + c.x + c.width &&
+          py >= pos.y + c.y && py <= pos.y + c.y + c.height
+        );
         return cell ? { item: cell.child, group: item } : null;
       }
       return { item, group: null };
@@ -170,32 +200,35 @@ function computeLayout(state) {
   const items = state.items.filter(isItemReady);
   if (items.length === 0) return null;
 
-  const exportWidth = getEffectiveExportWidth();
-  if (exportWidth <= 0) return null;
+  const crossSize = getEffectiveExportSize();
+  if (crossSize <= 0) return null;
 
+  const horizontal = state.stitchMode === 'horizontal';
   const m = state.margin.size;
   const outer = state.margin.outerBorder;
 
-  const geometries = items.map((item) => computeItemGeometry(item, exportWidth));
+  const geometries = items.map((item) => computeItemGeometry(item, crossSize, state.stitchMode));
 
-  const canvasWidth = exportWidth + (outer ? 2 * m : 0);
-  const canvasHeight =
-    geometries.reduce((sum, g) => sum + g.height, 0) + (items.length - 1) * m + (outer ? 2 * m : 0);
+  const mainTotal = geometries.reduce((sum, g) => sum + g.main, 0) + (items.length - 1) * m + (outer ? 2 * m : 0);
+  const crossTotal = crossSize + (outer ? 2 * m : 0);
+
+  const canvasWidth = horizontal ? mainTotal : crossTotal;
+  const canvasHeight = horizontal ? crossTotal : mainTotal;
 
   const positions = [];
-  let y = outer ? m : 0;
-  const x = outer ? m : 0;
+  let mainPos = outer ? m : 0;
+  const crossBase = outer ? m : 0;
   items.forEach((item, i) => {
     const geo = geometries[i];
     positions.push({
-      x: x + geo.dx,
-      y,
+      x: horizontal ? mainPos + geo.dx : crossBase + geo.dx,
+      y: horizontal ? crossBase + geo.dy : mainPos + geo.dy,
       width: geo.dw,
       height: geo.dh,
       source: geo.source,
       cells: geo.cells,
     });
-    y += geo.height + m;
+    mainPos += geo.main + m;
   });
 
   return {

@@ -372,6 +372,19 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.radio-row {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .9rem;
+  cursor: pointer;
+}
+
 .color-input-group {
   display: flex;
   align-items: center;

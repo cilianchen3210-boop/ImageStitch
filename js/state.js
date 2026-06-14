@@ -2,8 +2,9 @@ import { createImageItem, loadImageElement, generateId } from './utils.js';
 
 const state = {
   items: [],
+  stitchMode: 'vertical', // 'vertical' | 'horizontal'
   margin: { size: 20, color: '#ffffff', outerBorder: false },
-  exportWidth: { custom: null }, // null = 使用最宽图片宽度作为默认值
+  exportWidth: { custom: null }, // null = 使用最宽/最高图片尺寸作为默认值
   exportFormat: { type: 'image/jpeg', quality: 0.92 },
 };
 
@@ -35,8 +36,7 @@ export function addImages(files) {
         item.crop = {
           heightRatio: img.naturalHeight / img.naturalWidth,
           zoom: 1,
-          offsetX: 0.5,
-          offsetY: 0,
+          ...defaultCropOffsets(),
           widthPercent: 100,
         };
         item.widthRatio = 1;
@@ -96,6 +96,13 @@ export function setOuterBorder(value) {
   notifyChange();
 }
 
+export function setStitchMode(mode) {
+  if (state.stitchMode === mode) return;
+  state.stitchMode = mode;
+  resetAllAdjustments();
+  notifyChange();
+}
+
 export function setExportWidthCustom(value) {
   state.exportWidth.custom = value;
   notifyChange();
@@ -136,8 +143,7 @@ export function resetItemCrop(id) {
   item.crop = {
     heightRatio: item.naturalHeight / item.naturalWidth,
     zoom: 1,
-    offsetX: 0.5,
-    offsetY: 0,
+    ...defaultCropOffsets(),
     widthPercent: 100,
   };
   item.widthRatio = 1;
@@ -165,13 +171,10 @@ export function mergeIntoGroup(ids) {
     child.widthRatio = 1 / children.length;
   });
 
-  const ratios = children.map((c) => (c.naturalWidth > 0 ? c.naturalHeight / c.naturalWidth : 1));
-  const maxRatio = Math.max(...ratios);
-
   const group = {
     id: generateId(),
     type: 'group',
-    heightRatio: maxRatio / children.length,
+    heightRatio: defaultGroupHeightRatio(children, state.stitchMode === 'horizontal'),
     children,
   };
 
@@ -189,8 +192,7 @@ export function ungroupItem(groupId) {
     child.crop = {
       heightRatio: child.naturalHeight / child.naturalWidth,
       zoom: 1,
-      offsetX: 0.5,
-      offsetY: 0,
+      ...defaultCropOffsets(),
       widthPercent: 100,
     };
     child.widthRatio = 1;
@@ -264,21 +266,66 @@ function clamp(value, lo, hi) {
   return Math.min(Math.max(value, lo), hi);
 }
 
-export function getMaxNaturalWidth() {
-  const widths = state.items
-    .map((item) => {
-      if (item.type === 'group') {
-        const maxChildWidth = Math.max(...item.children.map((c) => c.naturalWidth || 0));
-        return maxChildWidth * item.children.length;
-      }
-      return item.naturalWidth || 0;
-    })
-    .filter((w) => w > 0);
-  return widths.length ? Math.max(...widths) : 0;
+// 非分组图片裁剪的默认偏移：交叉轴居中（0.5），主轴锚定起点（0）。
+// 垂直拼接时交叉轴为 offsetX、主轴为 offsetY；水平拼接时两者互换。
+function defaultCropOffsets() {
+  return state.stitchMode === 'horizontal'
+    ? { offsetX: 0, offsetY: 0.5 }
+    : { offsetX: 0.5, offsetY: 0 };
 }
 
-export function getEffectiveExportWidth() {
+// 分组默认高度比：垂直拼接取“最高比例的子图”作为基准，
+// 水平拼接取“最宽比例的子图”作为基准（对称推广）。
+function defaultGroupHeightRatio(children, horizontal) {
+  const ratios = children.map((c) => (c.naturalWidth > 0 ? c.naturalHeight / c.naturalWidth : 1));
+  const n = children.length;
+  return horizontal ? Math.min(...ratios) * n : Math.max(...ratios) / n;
+}
+
+// 切换拼接模式后，裁剪/比例等参数在两种模式下含义互调，直接重置为默认值。
+function resetAllAdjustments() {
+  const horizontal = state.stitchMode === 'horizontal';
+  const offsets = defaultCropOffsets();
+
+  state.items.forEach((item) => {
+    if (item.type === 'group') {
+      if (item.children.some((c) => !(c.naturalWidth > 0))) return;
+      item.heightRatio = defaultGroupHeightRatio(item.children, horizontal);
+      item.children.forEach((child) => {
+        child.centerLock = false;
+        child.crop = { zoom: 1, offsetX: 0.5, offsetY: 0.5, widthPercent: 100 };
+        child.widthRatio = 1 / item.children.length;
+      });
+    } else {
+      if (!(item.naturalWidth > 0)) return;
+      item.centerLock = false;
+      item.crop = {
+        heightRatio: item.naturalHeight / item.naturalWidth,
+        zoom: 1,
+        ...offsets,
+        widthPercent: 100,
+      };
+      item.widthRatio = 1;
+    }
+  });
+}
+
+export function getMaxNaturalCrossSize() {
+  const horizontal = state.stitchMode === 'horizontal';
+  const dims = state.items
+    .map((item) => {
+      if (item.type === 'group') {
+        const maxChildSize = Math.max(...item.children.map((c) => (horizontal ? c.naturalHeight : c.naturalWidth) || 0));
+        return maxChildSize * item.children.length;
+      }
+      return (horizontal ? item.naturalHeight : item.naturalWidth) || 0;
+    })
+    .filter((w) => w > 0);
+  return dims.length ? Math.max(...dims) : 0;
+}
+
+export function getEffectiveExportSize() {
   const custom = state.exportWidth.custom;
   if (custom && custom > 0) return custom;
-  return getMaxNaturalWidth();
+  return getMaxNaturalCrossSize();
 }
