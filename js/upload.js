@@ -6,6 +6,7 @@ import {
   reorderImages,
   mergeIntoGroup,
   ungroupItem,
+  clearAllImages,
 } from './state.js';
 
 const uploadRegion = document.getElementById('uploadRegion');
@@ -14,6 +15,7 @@ const uploadPlaceholder = document.getElementById('uploadPlaceholder');
 const fileInput = document.getElementById('fileInput');
 const mergeButton = document.getElementById('mergeButton');
 const ungroupButton = document.getElementById('ungroupButton');
+const clearButton = document.getElementById('clearButton');
 
 let draggedId = null;
 const selectedIds = new Set();
@@ -93,6 +95,11 @@ export function initUpload() {
     });
     ids.forEach((id) => ungroupItem(id));
     selectedIds.clear();
+  });
+
+  clearButton.addEventListener('click', () => {
+    selectedIds.clear();
+    clearAllImages();
   });
 
   uploadGrid.addEventListener('dragstart', (e) => {
@@ -224,4 +231,5 @@ function updateToolbarState() {
   const groups = selectedItems.filter((i) => i.type === 'group');
   mergeButton.disabled = !(images.length >= 2 && groups.length === 0);
   ungroupButton.disabled = !(groups.length >= 1 && images.length === 0);
+  clearButton.disabled = state.items.length === 0;
 }

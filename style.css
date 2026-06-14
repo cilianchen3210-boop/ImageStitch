@@ -372,6 +372,18 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.color-input-group {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+
+.hex-input {
+  width: 5.5rem;
+  font-family: monospace;
+  text-transform: lowercase;
+}
+
 #exportButton {
   padding: .5rem 1rem;
   border: none;

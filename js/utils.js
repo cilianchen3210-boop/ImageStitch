@@ -64,6 +64,18 @@ export function hexToHsl(hex) {
   return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
 }
 
+export function normalizeHex(value) {
+  let v = value.trim();
+  if (v.startsWith('#')) v = v.slice(1);
+  if (/^[0-9A-Fa-f]{3}$/.test(v)) {
+    v = v.split('').map((c) => c + c).join('');
+  }
+  if (/^[0-9A-Fa-f]{6}$/.test(v)) {
+    return `#${v.toLowerCase()}`;
+  }
+  return null;
+}
+
 export function hslToHex(h, s, l) {
   const sNorm = s / 100;
   const lNorm = l / 100;

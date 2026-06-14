@@ -60,6 +60,18 @@ export function removeImage(id) {
   notifyChange();
 }
 
+export function clearAllImages() {
+  state.items.forEach((item) => {
+    if (item.type === 'group') {
+      item.children.forEach((c) => URL.revokeObjectURL(c.src));
+    } else {
+      URL.revokeObjectURL(item.src);
+    }
+  });
+  state.items = [];
+  notifyChange();
+}
+
 export function reorderImages(fromIndex, toIndex) {
   if (fromIndex === toIndex) return;
   if (fromIndex < 0 || fromIndex >= state.items.length) return;

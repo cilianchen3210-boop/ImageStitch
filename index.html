@@ -20,6 +20,7 @@
         <div class="upload-toolbar">
           <button type="button" id="mergeButton" disabled>合并</button>
           <button type="button" id="ungroupButton" disabled>拆分</button>
+          <button type="button" id="clearButton" disabled>清空</button>
         </div>
       </div>
     </header>
@@ -46,7 +47,10 @@
             <input type="number" class="value-input" id="marginSizeValueInput" min="0" step="1" value="20" hidden>
           </label>
           <label>边距颜色
-            <input type="color" id="marginColorInput" value="#ffffff">
+            <span class="color-input-group">
+              <input type="text" id="marginColorHexInput" class="hex-input" maxlength="7" spellcheck="false" placeholder="#RRGGBB">
+              <input type="color" id="marginColorInput" value="#ffffff">
+            </span>
           </label>
           <label class="checkbox-label">
             <input type="checkbox" id="hslToggleInput">

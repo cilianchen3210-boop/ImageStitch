@@ -9,12 +9,13 @@ import {
   setExportQuality,
   getMaxNaturalWidth,
 } from './state.js';
-import { hexToHsl, hslToHex } from './utils.js';
+import { hexToHsl, hslToHex, normalizeHex } from './utils.js';
 
 const marginSizeInput = document.getElementById('marginSizeInput');
 const marginSizeValueLabel = document.getElementById('marginSizeValueLabel');
 const marginSizeValueInput = document.getElementById('marginSizeValueInput');
 const marginColorInput = document.getElementById('marginColorInput');
+const marginColorHexInput = document.getElementById('marginColorHexInput');
 const hslToggleInput = document.getElementById('hslToggleInput');
 const marginHslControls = document.getElementById('marginHslControls');
 const marginHueInput = document.getElementById('marginHueInput');
@@ -62,6 +63,19 @@ export function initControls() {
 
   marginColorInput.addEventListener('input', () => {
     applyMarginColor(marginColorInput.value, marginColorInput);
+  });
+
+  marginColorHexInput.addEventListener('input', () => {
+    const hex = normalizeHex(marginColorHexInput.value);
+    if (hex) applyMarginColor(hex, marginColorHexInput);
+  });
+
+  marginColorHexInput.addEventListener('blur', () => {
+    marginColorHexInput.value = getState().margin.color;
+  });
+
+  marginColorHexInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') marginColorHexInput.blur();
   });
 
   hslToggleInput.addEventListener('change', () => {
@@ -123,6 +137,7 @@ function applyMarginColor(hex, skip) {
   setMarginColor(hex);
 
   if (skip !== marginColorInput) marginColorInput.value = hex;
+  if (skip !== marginColorHexInput) marginColorHexInput.value = hex;
 
   if (skip !== 'hsl') {
     const { h, s, l } = hexToHsl(hex);
