@@ -1,5 +1,5 @@
 import { getState } from './state.js';
-import { render } from './render.js';
+import { render, isItemReady } from './render.js';
 
 const canvas = document.getElementById('previewCanvas');
 const exportButton = document.getElementById('exportButton');
@@ -30,7 +30,7 @@ export function initExport() {
 
 async function handleExport() {
   const state = getState();
-  const hasImages = state.items.some((item) => item.naturalWidth > 0);
+  const hasImages = state.items.some(isItemReady);
   if (!hasImages) {
     alert('请先上传图片');
     return;

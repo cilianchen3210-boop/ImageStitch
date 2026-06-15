@@ -189,7 +189,7 @@ export function getItemAtPoint(state, px, py) {
   return null;
 }
 
-function isItemReady(item) {
+export function isItemReady(item) {
   if (item.type === 'group') {
     return item.children.length > 0 && item.children.every((c) => c.naturalWidth > 0);
   }
