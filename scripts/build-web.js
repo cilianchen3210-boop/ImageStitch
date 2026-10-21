@@ -15,6 +15,7 @@ function copy(src, dest) {
 }
 
 fs.rmSync(out, { recursive: true, force: true });
+fs.mkdirSync(out, { recursive: true });
 for (const item of ['index.html', 'style.css', 'js']) {
   copy(path.join(root, item), path.join(out, item));
 }
