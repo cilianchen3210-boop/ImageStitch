@@ -513,6 +513,7 @@ body {
   height: auto;
   border-radius: 4px;
   cursor: move;
+  touch-action: none;
   background: #fafafa;
 }
 
@@ -526,6 +527,7 @@ body {
   border-radius: 4px;
   background: #6b6bf0;
   cursor: ns-resize;
+  touch-action: none;
 }
 
 .crop-resize-handle-h {
@@ -538,6 +540,7 @@ body {
   border-radius: 4px;
   background: #6b6bf0;
   cursor: ew-resize;
+  touch-action: none;
 }
 
 #cropPreviewCanvasLocked {
@@ -591,4 +594,12 @@ body {
     max-height: none;
     overflow-y: visible;
   }
+}
+
+/* 触屏：加大拖拽把手的可点区域（视觉大小不变） */
+.crop-resize-handle::after,
+.crop-resize-handle-h::after {
+  content: '';
+  position: absolute;
+  inset: -14px;
 }

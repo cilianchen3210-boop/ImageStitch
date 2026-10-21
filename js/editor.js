@@ -257,7 +257,7 @@ function initDragToPan() {
   let startOffsetX = 0.5;
   let startOffsetY = 0.5;
 
-  cropPreviewCanvas.addEventListener('mousedown', (e) => {
+  cropPreviewCanvas.addEventListener('pointerdown', (e) => {
     if (!currentItem || currentItem.centerLock) return;
     dragging = true;
     startX = e.clientX;
@@ -267,7 +267,7 @@ function initDragToPan() {
     e.preventDefault();
   });
 
-  window.addEventListener('mousemove', (e) => {
+  window.addEventListener('pointermove', (e) => {
     if (!dragging || !currentItem) return;
 
     const { source } = getPreviewGeometry();
@@ -288,9 +288,11 @@ function initDragToPan() {
     renderFreeCropPreview();
   });
 
-  window.addEventListener('mouseup', () => {
+  window.addEventListener('pointerup', stop);
+  window.addEventListener('pointercancel', stop);
+  function stop() {
     dragging = false;
-  });
+  }
 }
 
 // 竖向拼接时，cropResizeHandle（底部把手）调整主轴尺寸（heightRatio）；
@@ -302,7 +304,7 @@ function initResizeHandle() {
   let horizontal = false;
   let startRect = null;
 
-  cropResizeHandle.addEventListener('mousedown', (e) => {
+  cropResizeHandle.addEventListener('pointerdown', (e) => {
     if (!currentItem || currentItem.centerLock) return;
     startRect = cropPreviewCanvas.getBoundingClientRect();
     if (startRect.width === 0 || startRect.height === 0) return;
@@ -319,7 +321,7 @@ function initResizeHandle() {
     e.preventDefault();
   });
 
-  window.addEventListener('mousemove', (e) => {
+  window.addEventListener('pointermove', (e) => {
     if (!dragging || !currentItem) return;
 
     if (horizontal) {
@@ -345,9 +347,11 @@ function initResizeHandle() {
     renderFreeCropPreview();
   });
 
-  window.addEventListener('mouseup', () => {
+  window.addEventListener('pointerup', stop);
+  window.addEventListener('pointercancel', stop);
+  function stop() {
     dragging = false;
-  });
+  }
 }
 
 // 竖向拼接时，cropResizeHandleH（右侧把手）调整交叉轴缩放（widthRatio）；
@@ -359,7 +363,7 @@ function initResizeHandleH() {
   let horizontal = false;
   let startRect = null;
 
-  cropResizeHandleH.addEventListener('mousedown', (e) => {
+  cropResizeHandleH.addEventListener('pointerdown', (e) => {
     if (!currentItem || currentItem.centerLock) return;
     startRect = cropPreviewCanvas.getBoundingClientRect();
     if (startRect.width === 0 || startRect.height === 0) return;
@@ -376,7 +380,7 @@ function initResizeHandleH() {
     e.preventDefault();
   });
 
-  window.addEventListener('mousemove', (e) => {
+  window.addEventListener('pointermove', (e) => {
     if (!dragging || !currentItem) return;
 
     if (horizontal) {
@@ -402,9 +406,11 @@ function initResizeHandleH() {
     renderFreeCropPreview();
   });
 
-  window.addEventListener('mouseup', () => {
+  window.addEventListener('pointerup', stop);
+  window.addEventListener('pointercancel', stop);
+  function stop() {
     dragging = false;
-  });
+  }
 }
 
 function clamp(value, lo, hi) {
