@@ -63,6 +63,18 @@ async function handleExport() {
   }
 
   const blob = await canvasToBlob(mimeType, toBlobQuality);
+
+  // iOS WKWebView 不支持 a[download]，改用系统分享面板（可存到相册/文件）
+  const file = new File([blob], filename, { type: mimeType });
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file] });
+    } catch (err) {
+      if (err.name !== 'AbortError') throw err;
+    }
+    return;
+  }
+
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

@@ -1,0 +1,42 @@
+name: Build iOS IPA (unsigned)
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm install
+      - run: npm run build:web
+      - run: npx cap add ios
+      - run: npx cap sync ios
+
+      - name: Archive (no code signing)
+        working-directory: ios/App
+        run: |
+          xcodebuild archive \
+            -project App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath $PWD/build/App.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
+      - name: Package IPA
+        run: |
+          mkdir Payload
+          cp -R ios/App/build/App.xcarchive/Products/Applications/App.app Payload/
+          zip -r ImageStitch.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ImageStitch-ipa
+          path: ImageStitch.ipa
