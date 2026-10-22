@@ -18,6 +18,7 @@ const ungroupButton = document.getElementById('ungroupButton');
 const clearButton = document.getElementById('clearButton');
 
 let draggedId = null;
+const coarsePointer = window.matchMedia('(pointer: coarse)');
 const selectedIds = new Set();
 
 export function initUpload() {
@@ -116,13 +117,7 @@ export function initUpload() {
     if (!thumb || draggedId === null) return;
     e.preventDefault();
 
-    uploadGrid.querySelectorAll('.drag-over-left, .drag-over-right').forEach((el) => {
-      el.classList.remove('drag-over-left', 'drag-over-right');
-    });
-
-    const rect = thumb.getBoundingClientRect();
-    const isBefore = e.clientX < rect.left + rect.width / 2;
-    thumb.classList.add(isBefore ? 'drag-over-left' : 'drag-over-right');
+    markDropTarget(thumb, e.clientX);
   });
 
   uploadGrid.addEventListener('drop', (e) => {
@@ -130,33 +125,133 @@ export function initUpload() {
     if (!thumb || draggedId === null) return;
     e.preventDefault();
 
-    const state = getState();
-    const fromIndex = state.items.findIndex((item) => item.id === draggedId);
-    if (fromIndex === -1) return;
-
-    let toIndex;
-    if (thumb.classList.contains('add-tile')) {
-      toIndex = state.items.length - 1;
-    } else {
-      const rect = thumb.getBoundingClientRect();
-      const isBefore = e.clientX < rect.left + rect.width / 2;
-      const targetIndex = state.items.findIndex((item) => item.id === thumb.dataset.id);
-      toIndex = isBefore ? targetIndex : targetIndex + 1;
-      if (fromIndex < toIndex) toIndex -= 1;
-    }
-
-    reorderImages(fromIndex, toIndex);
+    dropOn(thumb, e.clientX);
   });
 
-  uploadGrid.addEventListener('dragend', () => {
-    draggedId = null;
-    uploadGrid.querySelectorAll('.dragging, .drag-over-left, .drag-over-right').forEach((el) => {
-      el.classList.remove('dragging', 'drag-over-left', 'drag-over-right');
-    });
-  });
+  uploadGrid.addEventListener('dragend', clearDragState);
+
+  initTouchReorder();
 
   onChange(syncThumbnails);
   syncThumbnails(getState());
+}
+
+function clearDragState() {
+  draggedId = null;
+  uploadGrid.querySelectorAll('.dragging, .drag-over-left, .drag-over-right').forEach((el) => {
+    el.classList.remove('dragging', 'drag-over-left', 'drag-over-right');
+  });
+}
+
+function markDropTarget(thumb, clientX) {
+  uploadGrid.querySelectorAll('.drag-over-left, .drag-over-right').forEach((el) => {
+    el.classList.remove('drag-over-left', 'drag-over-right');
+  });
+  const rect = thumb.getBoundingClientRect();
+  const isBefore = clientX < rect.left + rect.width / 2;
+  thumb.classList.add(isBefore ? 'drag-over-left' : 'drag-over-right');
+}
+
+function dropOn(thumb, clientX) {
+  const state = getState();
+  const fromIndex = state.items.findIndex((item) => item.id === draggedId);
+  if (fromIndex === -1) return;
+
+  let toIndex;
+  if (thumb.classList.contains('add-tile')) {
+    toIndex = state.items.length - 1;
+  } else {
+    const rect = thumb.getBoundingClientRect();
+    const isBefore = clientX < rect.left + rect.width / 2;
+    const targetIndex = state.items.findIndex((item) => item.id === thumb.dataset.id);
+    toIndex = isBefore ? targetIndex : targetIndex + 1;
+    if (fromIndex < toIndex) toIndex -= 1;
+  }
+
+  reorderImages(fromIndex, toIndex);
+}
+
+// 触屏没有 HTML5 拖放：长按缩略图后进入拖动状态，手指移到目标缩略图上松开即排序。
+// 长按之前的滑动仍是正常的页面滚动。
+function initTouchReorder() {
+  const LONG_PRESS_MS = 350;
+  const MOVE_TOLERANCE = 8;
+  let timer = null;
+  let active = false;
+  let startX = 0;
+  let startY = 0;
+  let sourceThumb = null;
+  let hoverThumb = null;
+
+  const cancelTimer = () => {
+    clearTimeout(timer);
+    timer = null;
+  };
+
+  const finish = () => {
+    cancelTimer();
+    active = false;
+    sourceThumb = null;
+    hoverThumb = null;
+    clearDragState();
+  };
+
+  const thumbAt = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    return el ? el.closest('.thumb') : null;
+  };
+
+  uploadGrid.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return finish();
+    const thumb = e.target.closest('.thumb');
+    if (!thumb || thumb.classList.contains('add-tile') || e.target.closest('.thumb-delete')) return;
+
+    const touch = e.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+    sourceThumb = thumb;
+    timer = setTimeout(() => {
+      active = true;
+      draggedId = thumb.dataset.id;
+      thumb.classList.add('dragging');
+      navigator.vibrate?.(15);
+    }, LONG_PRESS_MS);
+  }, { passive: true });
+
+  // 必须是非 passive，长按激活后才能阻止页面滚动
+  uploadGrid.addEventListener('touchmove', (e) => {
+    const touch = e.touches[0];
+    if (!active) {
+      if (timer && Math.hypot(touch.clientX - startX, touch.clientY - startY) > MOVE_TOLERANCE) finish();
+      return;
+    }
+    e.preventDefault();
+    const thumb = thumbAt(touch.clientX, touch.clientY);
+    if (!thumb || thumb === sourceThumb || !uploadGrid.contains(thumb)) {
+      hoverThumb = null;
+      uploadGrid.querySelectorAll('.drag-over-left, .drag-over-right').forEach((el) => {
+        el.classList.remove('drag-over-left', 'drag-over-right');
+      });
+      return;
+    }
+    hoverThumb = thumb;
+    markDropTarget(thumb, touch.clientX);
+  }, { passive: false });
+
+  uploadGrid.addEventListener('touchend', (e) => {
+    if (active) {
+      e.preventDefault(); // 避免松手后触发 click 导致选中状态被切换
+      if (hoverThumb) dropOn(hoverThumb, e.changedTouches[0].clientX);
+    }
+    finish();
+  });
+
+  uploadGrid.addEventListener('touchcancel', finish);
+
+  // 长按时不弹系统菜单
+  uploadGrid.addEventListener('contextmenu', (e) => {
+    if (e.target.closest('.thumb')) e.preventDefault();
+  });
 }
 
 export function syncThumbnails(state) {
@@ -180,7 +275,7 @@ export function syncThumbnails(state) {
     const thumb = document.createElement('div');
     thumb.className = 'thumb';
     thumb.dataset.id = item.id;
-    thumb.draggable = true;
+    thumb.draggable = !coarsePointer.matches;
 
     if (item.type === 'group') {
       thumb.classList.add('thumb-group');
